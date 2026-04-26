@@ -1,0 +1,8 @@
+streamlit
+numpy
+faiss-cpu
+pypdf
+sentence-transformers
+scikit-learn
+rank_bm25
+groq

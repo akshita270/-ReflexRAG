@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: clinical-rag-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+    # NOTE: ML models (sentence-transformers + cross-encoder) need ~2GB RAM.
+    # Free tier (512MB) will likely OOM. Use the Standard plan ($25/mo) or higher.
