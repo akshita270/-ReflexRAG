@@ -318,7 +318,7 @@ export default function Home() {
 
         {/* Upload */}
         <div className="px-6 py-5">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#94a3b8" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#475569" }}>
             Document
           </p>
           <button
@@ -366,7 +366,7 @@ export default function Home() {
 
         {/* Pipeline */}
         <div className="px-6 py-5 flex-1 overflow-y-auto">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#94a3b8" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#475569" }}>
             Pipeline
           </p>
           <div className="space-y-1">
@@ -377,28 +377,28 @@ export default function Home() {
                   key={step.label}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs transition-all"
                   style={{
-                    background: active && step.reflect ? "#f0fdfa" : "transparent",
-                    color: active ? (step.reflect ? "#0d9488" : "#374151") : "#cbd5e1",
+                    background: step.reflect ? "#f0fdfa" : "transparent",
+                    color: step.reflect ? "#0d9488" : "#1e293b",
                   }}
                 >
                   <span
-                    className="font-mono text-xs flex-shrink-0"
+                    className="font-mono flex-shrink-0"
                     style={{
-                      color: active ? (step.reflect ? "#0d9488" : "#94a3b8") : "#e2e8f0",
+                      color: step.reflect ? "#0d9488" : "#64748b",
                       fontSize: "0.6rem",
                     }}
                   >
                     {step.icon}
                   </span>
-                  <span className={step.reflect ? "font-medium" : ""}>{step.label}</span>
-                  {step.reflect && active && (
-                    <span className="ml-auto text-xs" style={{ color: "#0d9488" }}>✦</span>
+                  <span className={step.reflect ? "font-semibold" : "font-medium"}>{step.label}</span>
+                  {step.reflect && (
+                    <span className="ml-auto" style={{ color: "#0d9488", fontSize: "0.6rem" }}>✦</span>
                   )}
                 </div>
               );
             })}
           </div>
-          <p className="text-xs mt-3 flex items-center gap-1" style={{ color: "#cbd5e1" }}>
+          <p className="text-xs mt-3 flex items-center gap-1" style={{ color: "#94a3b8" }}>
             <span>✦</span> Self-Reflection nodes
           </p>
         </div>
