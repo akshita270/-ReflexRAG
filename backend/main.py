@@ -37,6 +37,14 @@ app = FastAPI(title="Clinical RAG API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(
+    CORSMiddleware,
     allow_origins=["*"],  # Restrict to your Vercel domain in production
     allow_credentials=True,
     allow_methods=["*"],
