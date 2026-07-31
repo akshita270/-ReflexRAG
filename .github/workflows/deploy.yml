@@ -10,9 +10,11 @@ jobs:
 
     steps:
       - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_KEY }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "${{ secrets.EC2_KEY }}" > ~/.ssh/deploy_key
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
