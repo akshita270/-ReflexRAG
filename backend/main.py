@@ -11,6 +11,7 @@ import faiss
 import os
 import psycopg2
 import psycopg2.extras
+import redis
 from io import BytesIO
 
 load_dotenv()
@@ -23,6 +24,7 @@ from openai import OpenAI
 embed_model = None
 reranker = None
 client = None
+cache: redis.Redis | None = None
 sessions: dict = {}
 
 
@@ -39,10 +41,17 @@ def get_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global embed_model, reranker, client
+    global embed_model, reranker, client, cache
     embed_model = SentenceTransformer("all-MiniLM-L6-v2")
     reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+    try:
+        cache = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+        cache.ping()
+        print("Redis connected")
+    except Exception as e:
+        print(f"Redis unavailable, caching disabled: {e}")
+        cache = None
     yield
 
 
@@ -51,14 +60,6 @@ app = FastAPI(title="Clinical RAG API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Restrict to your Vercel domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -514,6 +515,13 @@ async def chat(req: ChatRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found. Please upload a PDF first.")
 
+    # Check Redis cache before running the expensive pipeline
+    cache_key = f"chat:{req.session_id}:{req.query.lower().strip()}"
+    if cache:
+        cached = cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
     answer, used_chunks, reflection_log = run_pipeline(
         req.query,
         session["chunks"],
@@ -524,6 +532,11 @@ async def chat(req: ChatRequest):
 
     session["chat_history"].append({"role": "user", "content": req.query})
     session["chat_history"].append({"role": "assistant", "content": answer})
+
+    # Store result in Redis with 1-hour TTL
+    if cache:
+        result = {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log}
+        cache.setex(cache_key, 3600, json.dumps(result))
 
     # Persist messages to RDS
     try:
