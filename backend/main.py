@@ -9,6 +9,8 @@ import uuid
 import numpy as np
 import faiss
 import os
+import psycopg2
+import psycopg2.extras
 from io import BytesIO
 
 load_dotenv()
@@ -22,6 +24,16 @@ embed_model = None
 reranker = None
 client = None
 sessions: dict = {}
+
+
+def get_db():
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
 
 
 @asynccontextmanager
@@ -478,6 +490,20 @@ async def upload_pdf(file: UploadFile = File(...)):
         "filename": file.filename,
     }
 
+    # Persist document metadata to RDS
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO documents (session_id, filename, chunk_count) VALUES (%s, %s, %s)",
+            (session_id, file.filename, len(chunks)),
+        )
+        db.commit()
+        cur.close()
+        db.close()
+    except Exception as e:
+        print(f"DB write error (upload): {e}")
+
     return {"session_id": session_id, "chunk_count": len(chunks), "filename": file.filename}
 
 
@@ -498,6 +524,20 @@ async def chat(req: ChatRequest):
     session["chat_history"].append({"role": "user", "content": req.query})
     session["chat_history"].append({"role": "assistant", "content": answer})
 
+    # Persist messages to RDS
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO chat_messages (session_id, role, content) VALUES (%s, %s, %s), (%s, %s, %s)",
+            (req.session_id, "user", req.query, req.session_id, "assistant", answer),
+        )
+        db.commit()
+        cur.close()
+        db.close()
+    except Exception as e:
+        print(f"DB write error (chat): {e}")
+
     return {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log}
 
 
@@ -506,3 +546,58 @@ async def reset_session(session_id: str):
     if session_id in sessions:
         sessions[session_id]["chat_history"] = []
     return {"status": "ok"}
+
+
+@app.get("/history/{session_id}")
+async def get_history(session_id: str):
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "SELECT role, content, created_at FROM chat_messages WHERE session_id = %s ORDER BY created_at ASC",
+            (session_id,),
+        )
+        messages = cur.fetchall()
+        cur.close()
+        db.close()
+        return {"session_id": session_id, "messages": messages}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class FeedbackRequest(BaseModel):
+    session_id: str
+    query: str
+    answer: str
+    helpful: bool
+
+
+@app.post("/feedback")
+async def submit_feedback(req: FeedbackRequest):
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO query_feedback (session_id, query, answer, helpful) VALUES (%s, %s, %s, %s)",
+            (req.session_id, req.query, req.answer, req.helpful),
+        )
+        db.commit()
+        cur.close()
+        db.close()
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/sessions")
+async def list_sessions():
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT session_id, filename, chunk_count, created_at FROM documents ORDER BY created_at DESC LIMIT 20")
+        docs = cur.fetchall()
+        cur.close()
+        db.close()
+        return {"sessions": docs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
