@@ -9,15 +9,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_KEY }}
-          script: |
-            cd ~/-ReflexRAG
-            git pull origin main
-            sudo /usr/bin/python3.11 -m pip install -r backend/requirements.txt -q
-            sudo systemctl restart reflexrag
-            echo "Deploy complete"
+      - name: Deploy to EC2 via SSH
+        env:
+          EC2_KEY: ${{ secrets.EC2_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          echo "$EC2_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=30 \
+            $EC2_USER@$EC2_HOST \
+            "cd ~/-ReflexRAG && git pull origin main && sudo /usr/bin/python3.11 -m pip install -r backend/requirements.txt -q && sudo systemctl restart reflexrag && echo Deploy complete"
+          rm -f /tmp/deploy_key
