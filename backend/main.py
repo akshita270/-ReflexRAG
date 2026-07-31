@@ -32,6 +32,7 @@ def get_db():
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
+        sslmode="require",
         cursor_factory=psycopg2.extras.RealDictCursor,
     )
 
