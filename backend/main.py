@@ -503,18 +503,19 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     # Upload PDF to S3
     s3_key = None
-    if s3:
-        try:
-            s3_key = f"uploads/{session_id}/{file.filename}"
-            s3.put_object(
-                Bucket=os.getenv("S3_BUCKET", "reflexrag-pdfs"),
-                Key=s3_key,
-                Body=content,
-                ContentType="application/pdf",
-            )
-        except Exception as e:
-            print(f"S3 upload error: {e}")
-            s3_key = None
+    try:
+        s3_client = boto3.client("s3", region_name="us-east-1")
+        s3_key = f"uploads/{session_id}/{file.filename}"
+        s3_client.put_object(
+            Bucket=os.getenv("S3_BUCKET", "reflexrag-pdfs"),
+            Key=s3_key,
+            Body=content,
+            ContentType="application/pdf",
+        )
+        print(f"S3 upload OK: {s3_key}")
+    except Exception as e:
+        print(f"S3 upload error: {e}")
+        s3_key = None
 
     # Persist document metadata to RDS
     try:
