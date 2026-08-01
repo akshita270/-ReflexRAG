@@ -2,7 +2,10 @@ import type { UploadResponse, ChatResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://reflexrag.com";
 
-export async function uploadPDF(file: File): Promise<UploadResponse> {
+export async function uploadPDF(
+  file: File,
+  onProgress?: (status: string) => void
+): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
   const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
@@ -10,7 +13,21 @@ export async function uploadPDF(file: File): Promise<UploadResponse> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Upload failed");
   }
-  return res.json();
+  const { task_id, session_id, filename } = await res.json();
+
+  // Poll task status until done
+  while (true) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const poll = await fetch(`${API_URL}/task/${task_id}`);
+    const data = await poll.json();
+    if (data.state === "SUCCESS") {
+      return { session_id: data.session_id, chunk_count: data.chunk_count, filename: data.filename };
+    }
+    if (data.state === "FAILURE") {
+      throw new Error(data.status || "Processing failed");
+    }
+    onProgress?.(data.status || "Processing...");
+  }
 }
 
 export async function sendChat(session_id: string, query: string): Promise<ChatResponse> {

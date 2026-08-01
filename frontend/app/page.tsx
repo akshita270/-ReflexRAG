@@ -219,6 +219,7 @@ export default function Home() {
   const [messages, setMessages]     = useState<Message[]>([]);
   const [input, setInput]           = useState("");
   const [uploading, setUploading]   = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
   const [loading, setLoading]       = useState(false);
   const [restoring, setRestoring]   = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -254,9 +255,10 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadStatus("Uploading to S3...");
     setError(null);
     try {
-      const res = await uploadPDF(file);
+      const res = await uploadPDF(file, setUploadStatus);
       setSessionId(res.session_id);
       setFilename(res.filename);
       setChunkCount(res.chunk_count);
@@ -357,7 +359,7 @@ export default function Home() {
             }}
           >
             {uploading ? (
-              <><span className="animate-spin">⟳</span> Processing...</>
+              <><span className="animate-spin">⟳</span> {uploadStatus || "Processing..."}</>
             ) : (
               <>↑ Upload PDF</>
             )}

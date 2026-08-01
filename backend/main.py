@@ -13,6 +13,9 @@ import psycopg2
 import psycopg2.extras
 import redis
 import boto3
+from celery.result import AsyncResult
+from celery_app import celery_app
+import tasks as celery_tasks
 from io import BytesIO
 
 load_dotenv()
@@ -475,33 +478,9 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
     content = await file.read()
-    reader = PdfReader(BytesIO(content))
-    text = ""
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text + "\n"
-
-    text = restructure_tables(text)
-    chunks = chunk_text(clean_text(text))
-    if not chunks:
-        raise HTTPException(status_code=400, detail="No valid text chunks found in PDF.")
-
-    embeddings = embed_model.encode(chunks, show_progress_bar=False)
-    idx = faiss.IndexFlatL2(embeddings.shape[1])
-    idx.add(np.array(embeddings, dtype=np.float32))
-    bm25 = BM25Okapi([c.lower().split() for c in chunks])
-
     session_id = str(uuid.uuid4())
-    sessions[session_id] = {
-        "chunks": chunks,
-        "index": idx,
-        "bm25": bm25,
-        "chat_history": [],
-        "filename": file.filename,
-    }
 
-    # Upload PDF to S3
+    # Upload PDF to S3 first (fast)
     s3_key = None
     try:
         s3_client = boto3.client("s3", region_name="us-east-1")
@@ -515,15 +494,15 @@ async def upload_pdf(file: UploadFile = File(...)):
         print(f"S3 upload OK: {s3_key}")
     except Exception as e:
         print(f"S3 upload error: {e}")
-        s3_key = None
+        raise HTTPException(status_code=500, detail="Failed to store PDF.")
 
-    # Persist document metadata to RDS
+    # Save metadata to RDS
     try:
         db = get_db()
         cur = db.cursor()
         cur.execute(
             "INSERT INTO documents (session_id, filename, chunk_count, s3_key) VALUES (%s, %s, %s, %s)",
-            (session_id, file.filename, len(chunks), s3_key),
+            (session_id, file.filename, 0, s3_key),
         )
         db.commit()
         cur.close()
@@ -531,7 +510,65 @@ async def upload_pdf(file: UploadFile = File(...)):
     except Exception as e:
         print(f"DB write error (upload): {e}")
 
-    return {"session_id": session_id, "chunk_count": len(chunks), "filename": file.filename}
+    # Hand off heavy processing to Celery worker
+    task = celery_tasks.process_pdf.delay(session_id, s3_key, file.filename)
+
+    return {"task_id": task.id, "session_id": session_id, "filename": file.filename}
+
+
+@app.get("/task/{task_id}")
+async def get_task_status(task_id: str):
+    result = AsyncResult(task_id, app=celery_app)
+
+    if result.state == "PENDING":
+        return {"state": "PENDING", "status": "Waiting to start..."}
+
+    if result.state == "PROGRESS":
+        return {"state": "PROGRESS", "status": result.info.get("status", "")}
+
+    if result.state == "SUCCESS":
+        data = result.result
+        session_id = data["session_id"]
+
+        # Load from Redis into memory if not already there
+        if session_id not in sessions and cache:
+            try:
+                chunks_raw = cache.get(f"session_chunks:{session_id}")
+                index_raw = cache.get(f"session_index:{session_id}")
+                if chunks_raw and index_raw:
+                    chunks = json.loads(chunks_raw)
+                    idx = faiss.deserialize_index(np.frombuffer(index_raw, dtype=np.uint8))
+                    bm25 = BM25Okapi([c.lower().split() for c in chunks])
+                    sessions[session_id] = {
+                        "chunks": chunks,
+                        "index": idx,
+                        "bm25": bm25,
+                        "chat_history": [],
+                        "filename": data["filename"],
+                    }
+                    # Update chunk count in RDS
+                    try:
+                        db = get_db()
+                        cur = db.cursor()
+                        cur.execute(
+                            "UPDATE documents SET chunk_count = %s WHERE session_id = %s",
+                            (data["chunk_count"], session_id),
+                        )
+                        db.commit()
+                        cur.close()
+                        db.close()
+                    except Exception:
+                        pass
+            except Exception as e:
+                print(f"Session load error: {e}")
+
+        return {"state": "SUCCESS", "session_id": session_id,
+                "chunk_count": data["chunk_count"], "filename": data["filename"]}
+
+    if result.state == "FAILURE":
+        return {"state": "FAILURE", "status": str(result.info)}
+
+    return {"state": result.state, "status": "Processing..."}
 
 
 @app.post("/chat")
