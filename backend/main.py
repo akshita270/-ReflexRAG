@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import re
 import json
 import uuid
+import time
 import numpy as np
 import faiss
 import os
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):
     reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
     try:
-        cache = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+        cache = redis.Redis(host="localhost", port=6379, db=0, decode_responses=False)
         cache.ping()
         print("Redis connected")
     except Exception as e:
@@ -64,6 +65,32 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"S3 unavailable: {e}")
         s3 = None
+    # Create eval_metrics table if it doesn't exist
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS eval_metrics (
+                id SERIAL PRIMARY KEY,
+                session_id TEXT,
+                query TEXT,
+                answer TEXT,
+                faithful BOOLEAN,
+                relevant BOOLEAN,
+                context_precision REAL,
+                response_time_ms INTEGER,
+                cache_hit BOOLEAN DEFAULT FALSE,
+                semantic_cache_hit BOOLEAN DEFAULT FALSE,
+                iterations INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        db.commit()
+        cur.close()
+        db.close()
+        print("eval_metrics table ready")
+    except Exception as e:
+        print(f"DB table init error: {e}")
     yield
 
 
@@ -458,6 +485,61 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
     return answer, graded_chunks, reflection_log
 
 
+# ── SEMANTIC CACHE ───────────────────────────────────────────
+
+SEMANTIC_THRESHOLD = 0.92
+
+def _sem_cache_get(session_id: str, query_emb: np.ndarray):
+    if not cache:
+        return None
+    raw = cache.get(f"semcache:{session_id}")
+    if not raw:
+        return None
+    entries = json.loads(raw)
+    if not entries:
+        return None
+    embs = np.array([e["emb"] for e in entries], dtype=np.float32)
+    sims = cosine_similarity(query_emb.reshape(1, -1), embs)[0]
+    best = int(np.argmax(sims))
+    if sims[best] >= SEMANTIC_THRESHOLD:
+        cached = cache.get(entries[best]["key"])
+        if cached:
+            return json.loads(cached)
+    return None
+
+def _sem_cache_set(session_id: str, query: str, query_emb: np.ndarray, cache_key: str):
+    if not cache:
+        return
+    raw = cache.get(f"semcache:{session_id}")
+    entries = json.loads(raw) if raw else []
+    entries.append({"q": query, "emb": query_emb.tolist(), "key": cache_key})
+    entries = entries[-50:]
+    cache.set(f"semcache:{session_id}", json.dumps(entries), ex=86400)
+
+
+# ── EVAL METRICS ─────────────────────────────────────────────
+
+def store_eval_metric(session_id, query, answer, faithful, relevant,
+                      context_precision, response_time_ms,
+                      cache_hit=False, semantic_cache_hit=False, iterations=1):
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            """INSERT INTO eval_metrics
+               (session_id, query, answer, faithful, relevant, context_precision,
+                response_time_ms, cache_hit, semantic_cache_hit, iterations)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (session_id, query[:500], answer[:500], faithful, relevant,
+             context_precision, response_time_ms, cache_hit, semantic_cache_hit, iterations),
+        )
+        db.commit()
+        cur.close()
+        db.close()
+    except Exception as e:
+        print(f"Eval metric error: {e}")
+
+
 # ── REQUEST MODELS ────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
@@ -573,17 +655,34 @@ async def get_task_status(task_id: str):
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
+    t0 = time.time()
     session = sessions.get(req.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found. Please upload a PDF first.")
 
-    # Check Redis cache before running the expensive pipeline
+    # 1. Exact cache check
     cache_key = f"chat:{req.session_id}:{req.query.lower().strip()}"
     if cache:
         cached = cache.get(cache_key)
         if cached:
-            return json.loads(cached)
+            result = json.loads(cached)
+            store_eval_metric(req.session_id, req.query, result.get("answer", ""),
+                              True, True, 1.0, int((time.time() - t0) * 1000),
+                              cache_hit=True, iterations=0)
+            return result
 
+    # 2. Embed query (reused for semantic cache + pipeline)
+    query_emb = embed_model.encode([req.query], convert_to_numpy=True)[0]
+
+    # 3. Semantic cache check
+    sem_result = _sem_cache_get(req.session_id, query_emb)
+    if sem_result:
+        store_eval_metric(req.session_id, req.query, sem_result.get("answer", ""),
+                          True, True, 1.0, int((time.time() - t0) * 1000),
+                          semantic_cache_hit=True, iterations=0)
+        return sem_result
+
+    # 4. Run full pipeline
     answer, used_chunks, reflection_log = run_pipeline(
         req.query,
         session["chunks"],
@@ -595,12 +694,26 @@ async def chat(req: ChatRequest):
     session["chat_history"].append({"role": "user", "content": req.query})
     session["chat_history"].append({"role": "assistant", "content": answer})
 
-    # Store result in Redis with 1-hour TTL
+    result = {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log}
+
+    # 5. Store in exact cache
     if cache:
-        result = {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log}
         cache.setex(cache_key, 3600, json.dumps(result))
 
-    # Persist messages to RDS
+    # 6. Store in semantic cache
+    _sem_cache_set(req.session_id, req.query, query_emb, cache_key)
+
+    # 7. Store eval metrics
+    last_refl = reflection_log[-1] if reflection_log else {}
+    ctx_prec = last_refl.get("after_grading", 0) / max(last_refl.get("retrieved", 1), 1)
+    store_eval_metric(
+        req.session_id, req.query, answer,
+        last_refl.get("faithful", True), last_refl.get("relevant", True),
+        ctx_prec, int((time.time() - t0) * 1000),
+        iterations=last_refl.get("iteration", 1),
+    )
+
+    # 8. Persist messages to RDS
     try:
         db = get_db()
         cur = db.cursor()
@@ -614,7 +727,7 @@ async def chat(req: ChatRequest):
     except Exception as e:
         print(f"DB write error (chat): {e}")
 
-    return {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log}
+    return result
 
 
 @app.delete("/session/{session_id}")
@@ -735,5 +848,55 @@ async def list_sessions():
         cur.close()
         db.close()
         return {"sessions": docs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/metrics")
+async def get_metrics():
+    try:
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("""
+            SELECT
+                COUNT(*) as total_queries,
+                COALESCE(ROUND(AVG(CASE WHEN faithful THEN 100.0 ELSE 0.0 END)::numeric, 1), 0) as faithfulness_pct,
+                COALESCE(ROUND(AVG(CASE WHEN relevant THEN 100.0 ELSE 0.0 END)::numeric, 1), 0) as relevance_pct,
+                COALESCE(ROUND(AVG(CASE WHEN cache_hit OR semantic_cache_hit THEN 100.0 ELSE 0.0 END)::numeric, 1), 0) as cache_hit_pct,
+                COALESCE(ROUND(AVG(response_time_ms)::numeric, 0), 0) as avg_response_ms,
+                COALESCE(ROUND(AVG(context_precision * 100)::numeric, 1), 0) as avg_context_pct,
+                COALESCE(SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END), 0) as exact_hits,
+                COALESCE(SUM(CASE WHEN semantic_cache_hit THEN 1 ELSE 0 END), 0) as semantic_hits
+            FROM eval_metrics
+        """)
+        stats = dict(cur.fetchone())
+
+        cur.execute("""
+            SELECT e.query, e.faithful, e.relevant, e.context_precision,
+                   e.response_time_ms, e.cache_hit, e.semantic_cache_hit,
+                   e.iterations, e.created_at::text, d.filename
+            FROM eval_metrics e
+            LEFT JOIN documents d ON e.session_id = d.session_id
+            ORDER BY e.created_at DESC LIMIT 20
+        """)
+        recent = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT COALESCE(d.filename, 'Unknown') as filename,
+                   COUNT(*) as total_queries,
+                   ROUND(AVG(CASE WHEN e.faithful THEN 100.0 ELSE 0.0 END)::numeric, 1) as faithfulness_pct,
+                   ROUND(AVG(e.context_precision * 100)::numeric, 1) as avg_context_pct,
+                   ROUND(AVG(e.response_time_ms)::numeric, 0) as avg_ms
+            FROM eval_metrics e
+            LEFT JOIN documents d ON e.session_id = d.session_id
+            GROUP BY d.filename
+            ORDER BY total_queries DESC LIMIT 10
+        """)
+        per_doc = [dict(r) for r in cur.fetchall()]
+
+        cur.close()
+        db.close()
+        return {"stats": stats, "recent": recent, "per_doc": per_doc}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

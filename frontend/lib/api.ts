@@ -54,6 +54,12 @@ export async function fetchSessions(): Promise<{ session_id: string; filename: s
   return data.sessions || [];
 }
 
+export async function fetchMetrics() {
+  const res = await fetch(`${API_URL}/metrics`);
+  if (!res.ok) throw new Error("Failed to fetch metrics");
+  return res.json();
+}
+
 export async function restoreSession(session_id: string): Promise<UploadResponse> {
   const res = await fetch(`${API_URL}/restore/${session_id}`, { method: "POST" });
   if (!res.ok) {

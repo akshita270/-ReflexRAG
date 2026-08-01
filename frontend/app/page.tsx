@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { uploadPDF, sendChat, resetSession, fetchSessions, restoreSession } from "@/lib/api";
 import type { Message, ReflectionEntry } from "@/lib/types";
 
@@ -468,6 +469,19 @@ export default function Home() {
           <p className="text-xs mt-3 flex items-center gap-1" style={{ color: "#94a3b8" }}>
             <span>✦</span> Self-Reflection nodes
           </p>
+          <div className="mt-4" style={{ height: "1px", background: "#f1f5f9" }} />
+          <Link
+            href="/dashboard"
+            className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-all"
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              color: "#64748b",
+              textDecoration: "none",
+            }}
+          >
+            <span>📊</span> Eval Dashboard
+          </Link>
         </div>
 
         {/* Reset */}
