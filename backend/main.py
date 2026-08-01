@@ -666,6 +666,7 @@ async def chat(req: ChatRequest):
         cached = cache.get(cache_key)
         if cached:
             result = json.loads(cached)
+            result["source"] = "cache"
             store_eval_metric(req.session_id, req.query, result.get("answer", ""),
                               True, True, 1.0, int((time.time() - t0) * 1000),
                               cache_hit=True, iterations=0)
@@ -677,6 +678,7 @@ async def chat(req: ChatRequest):
     # 3. Semantic cache check
     sem_result = _sem_cache_get(req.session_id, query_emb)
     if sem_result:
+        sem_result["source"] = "semantic_cache"
         store_eval_metric(req.session_id, req.query, sem_result.get("answer", ""),
                           True, True, 1.0, int((time.time() - t0) * 1000),
                           semantic_cache_hit=True, iterations=0)
@@ -694,7 +696,7 @@ async def chat(req: ChatRequest):
     session["chat_history"].append({"role": "user", "content": req.query})
     session["chat_history"].append({"role": "assistant", "content": answer})
 
-    result = {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log}
+    result = {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log, "source": "pipeline"}
 
     # 5. Store in exact cache
     if cache:

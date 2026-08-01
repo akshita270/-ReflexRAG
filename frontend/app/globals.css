@@ -1,40 +1,81 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme variables ──────────────────────────────────────── */
 :root {
-  --bg: #0a0a0f;
-  --surface: #12121f;
-  --border: #2a2a3f;
-  --accent: #00ff9d;
+  --bg:            #f1f5f9;
+  --surface:       #ffffff;
+  --surface-alt:   #f8fafc;
+  --border:        #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text:          #0f172a;
+  --text-muted:    #475569;
+  --text-subtle:   #94a3b8;
+  --accent:        #0d9488;
+  --accent-light:  #f0fdfa;
+  --accent-border: #99f6e4;
+  --success:       #15803d;
+  --success-bg:    #f0fdf4;
+  --danger:        #dc2626;
+  --danger-bg:     #fef2f2;
+  --purple:        #7c3aed;
+  --purple-bg:     #f3e8ff;
+  --shadow:        0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md:     0 4px 16px rgba(0,0,0,0.08);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+[data-theme="dark"] {
+  --bg:            #0f172a;
+  --surface:       #1e293b;
+  --surface-alt:   #162032;
+  --border:        #334155;
+  --border-strong: #475569;
+  --text:          #f1f5f9;
+  --text-muted:    #cbd5e1;
+  --text-subtle:   #64748b;
+  --accent:        #14b8a6;
+  --accent-light:  #0d2e2a;
+  --accent-border: #0d9488;
+  --success:       #4ade80;
+  --success-bg:    #052e16;
+  --danger:        #f87171;
+  --danger-bg:     #3b0a0a;
+  --purple:        #a78bfa;
+  --purple-bg:     #1e1040;
+  --shadow:        0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:     0 4px 16px rgba(0,0,0,0.5);
 }
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background: var(--bg);
-  color: #e8e8f0;
-  font-family: "DM Sans", sans-serif;
+  color: var(--text);
+  font-family: "Inter", system-ui, sans-serif;
   height: 100dvh;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.15s, color 0.15s;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar-track {
-  background: var(--bg);
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3a3a5f;
-}
+
+.msg-animate { animation: fadeUp 0.2s ease-out; }
+.spin { animation: spin 0.7s linear infinite; display: inline-block; }

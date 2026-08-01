@@ -13,6 +13,7 @@ export interface Message {
   content: string;
   chunks?: string[];
   reflection_log?: ReflectionEntry[];
+  source?: "pipeline" | "cache" | "semantic_cache";
 }
 
 export interface UploadResponse {
@@ -25,4 +26,5 @@ export interface ChatResponse {
   answer: string;
   chunks: string[];
   reflection_log: ReflectionEntry[];
+  source?: "pipeline" | "cache" | "semantic_cache";
 }
