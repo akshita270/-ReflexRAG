@@ -587,6 +587,66 @@ async def reset_session(session_id: str):
     return {"status": "ok"}
 
 
+@app.post("/restore/{session_id}")
+async def restore_session(session_id: str):
+    # Already in memory — no need to restore
+    if session_id in sessions:
+        return {"session_id": session_id, "filename": sessions[session_id]["filename"], "chunk_count": len(sessions[session_id]["chunks"])}
+
+    # Look up in RDS
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT filename, chunk_count, s3_key FROM documents WHERE session_id = %s", (session_id,))
+        doc = cur.fetchone()
+        cur.close()
+        db.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    if not doc["s3_key"]:
+        raise HTTPException(status_code=404, detail="PDF not in S3 — please re-upload.")
+
+    # Download PDF from S3
+    try:
+        s3_client = boto3.client("s3", region_name="us-east-1")
+        obj = s3_client.get_object(Bucket=os.getenv("S3_BUCKET", "reflexrag-pdfs"), Key=doc["s3_key"])
+        content = obj["Body"].read()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"S3 download failed: {e}")
+
+    # Rebuild index
+    reader = PdfReader(BytesIO(content))
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
+
+    text = restructure_tables(text)
+    chunks = chunk_text(clean_text(text))
+    if not chunks:
+        raise HTTPException(status_code=400, detail="Could not extract text from PDF.")
+
+    embeddings = embed_model.encode(chunks, show_progress_bar=False)
+    idx = faiss.IndexFlatL2(embeddings.shape[1])
+    idx.add(np.array(embeddings, dtype=np.float32))
+    bm25 = BM25Okapi([c.lower().split() for c in chunks])
+
+    sessions[session_id] = {
+        "chunks": chunks,
+        "index": idx,
+        "bm25": bm25,
+        "chat_history": [],
+        "filename": doc["filename"],
+    }
+
+    print(f"Session restored from S3: {session_id}")
+    return {"session_id": session_id, "filename": doc["filename"], "chunk_count": len(chunks)}
+
+
 @app.get("/history/{session_id}")
 async def get_history(session_id: str):
     try:

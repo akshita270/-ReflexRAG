@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { uploadPDF, sendChat, resetSession } from "@/lib/api";
+import { uploadPDF, sendChat, resetSession, fetchSessions, restoreSession } from "@/lib/api";
 import type { Message, ReflectionEntry } from "@/lib/types";
+
+type PastSession = { session_id: string; filename: string; chunk_count: number; created_at: string };
 
 const PIPELINE_STEPS = [
   { label: "PDF Load & Clean",      icon: "01", reflect: false },
@@ -218,13 +220,35 @@ export default function Home() {
   const [input, setInput]           = useState("");
   const [uploading, setUploading]   = useState(false);
   const [loading, setLoading]       = useState(false);
+  const [restoring, setRestoring]   = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [pastSessions, setPastSessions] = useState<PastSession[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef   = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    fetchSessions().then(setPastSessions);
+  }, []);
+
+  async function handleRestore(s: PastSession) {
+    setRestoring(true);
+    setError(null);
+    try {
+      const res = await restoreSession(s.session_id);
+      setSessionId(res.session_id);
+      setFilename(res.filename);
+      setChunkCount(res.chunk_count);
+      setMessages([]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Restore failed");
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -363,6 +387,47 @@ export default function Home() {
         <div className="px-6">
           <div style={{ height: "1px", background: "#f1f5f9" }} />
         </div>
+
+        {/* Past Sessions */}
+        {pastSessions.length > 0 && (
+          <>
+            <div className="px-6">
+              <div style={{ height: "1px", background: "#f1f5f9" }} />
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "#475569" }}>
+                Recent Documents
+              </p>
+              <div className="space-y-1">
+                {pastSessions.slice(0, 5).map((s) => (
+                  <button
+                    key={s.session_id}
+                    onClick={() => handleRestore(s)}
+                    disabled={restoring || s.session_id === sessionId}
+                    className="w-full text-left rounded-xl px-3 py-2 text-xs transition-all flex items-center gap-2"
+                    style={{
+                      background: s.session_id === sessionId ? "#f0fdfa" : "transparent",
+                      border: s.session_id === sessionId ? "1px solid #99f6e4" : "1px solid transparent",
+                      color: "#1e293b",
+                      cursor: restoring ? "wait" : "pointer",
+                    }}
+                  >
+                    <span>📄</span>
+                    <span className="truncate flex-1">{s.filename}</span>
+                    {s.session_id === sessionId && (
+                      <span style={{ color: "#0d9488", fontSize: "0.6rem" }}>●</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {restoring && (
+                <p className="text-xs mt-2 text-center" style={{ color: "#0d9488" }}>
+                  Rebuilding index from S3...
+                </p>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Pipeline */}
         <div className="px-6 py-5 flex-1 overflow-y-auto">
