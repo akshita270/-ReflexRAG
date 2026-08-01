@@ -12,6 +12,7 @@ import os
 import psycopg2
 import psycopg2.extras
 import redis
+import boto3
 from io import BytesIO
 
 load_dotenv()
@@ -25,6 +26,7 @@ embed_model = None
 reranker = None
 client = None
 cache: redis.Redis | None = None
+s3 = None
 sessions: dict = {}
 
 
@@ -52,6 +54,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Redis unavailable, caching disabled: {e}")
         cache = None
+    try:
+        s3 = boto3.client("s3", region_name="us-east-1")
+        s3.head_bucket(Bucket=os.getenv("S3_BUCKET", "reflexrag-pdfs"))
+        print("S3 connected")
+    except Exception as e:
+        print(f"S3 unavailable: {e}")
+        s3 = None
     yield
 
 
@@ -492,13 +501,28 @@ async def upload_pdf(file: UploadFile = File(...)):
         "filename": file.filename,
     }
 
+    # Upload PDF to S3
+    s3_key = None
+    if s3:
+        try:
+            s3_key = f"uploads/{session_id}/{file.filename}"
+            s3.put_object(
+                Bucket=os.getenv("S3_BUCKET", "reflexrag-pdfs"),
+                Key=s3_key,
+                Body=content,
+                ContentType="application/pdf",
+            )
+        except Exception as e:
+            print(f"S3 upload error: {e}")
+            s3_key = None
+
     # Persist document metadata to RDS
     try:
         db = get_db()
         cur = db.cursor()
         cur.execute(
-            "INSERT INTO documents (session_id, filename, chunk_count) VALUES (%s, %s, %s)",
-            (session_id, file.filename, len(chunks)),
+            "INSERT INTO documents (session_id, filename, chunk_count, s3_key) VALUES (%s, %s, %s, %s)",
+            (session_id, file.filename, len(chunks), s3_key),
         )
         db.commit()
         cur.close()
