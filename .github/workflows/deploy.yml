@@ -9,6 +9,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://reflexrag.com
+        run: |
+          npm ci
+          npm run build
+
       - name: Setup SSH key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_KEY }}
@@ -18,10 +34,16 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to EC2
+      - name: Deploy backend to EC2
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
             "cd ~/-ReflexRAG && git pull origin main && \
              sudo /usr/bin/python3.11 -m pip install -r backend/requirements.txt -q && \
-             sudo systemctl restart reflexrag && \
-             echo Deploy complete"
+             sudo systemctl restart reflexrag"
+
+      - name: Deploy frontend to EC2
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
+            frontend/out/ \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/reflexrag/
+          echo "Deploy complete"

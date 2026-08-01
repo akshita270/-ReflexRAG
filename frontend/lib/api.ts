@@ -1,6 +1,6 @@
 import type { UploadResponse, ChatResponse } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://reflexrag.com";
 
 export async function uploadPDF(file: File): Promise<UploadResponse> {
   const formData = new FormData();
