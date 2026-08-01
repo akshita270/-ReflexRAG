@@ -4,6 +4,7 @@ celery_app = Celery(
     "reflexrag",
     broker="redis://localhost:6379/0",
     backend="redis://localhost:6379/2",
+    include=["tasks"],
 )
 
 celery_app.conf.update(
