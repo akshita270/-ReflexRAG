@@ -877,7 +877,7 @@ async def get_metrics():
                    e.response_time_ms, e.cache_hit, e.semantic_cache_hit,
                    e.iterations, e.created_at::text, d.filename
             FROM eval_metrics e
-            LEFT JOIN documents d ON e.session_id = d.session_id
+            LEFT JOIN documents d ON e.session_id = d.session_id::text
             ORDER BY e.created_at DESC LIMIT 20
         """)
         recent = [dict(r) for r in cur.fetchall()]
@@ -889,9 +889,9 @@ async def get_metrics():
                    ROUND(AVG(e.context_precision * 100)::numeric, 1) as avg_context_pct,
                    ROUND(AVG(e.response_time_ms)::numeric, 0) as avg_ms
             FROM eval_metrics e
-            LEFT JOIN documents d ON e.session_id = d.session_id
+            LEFT JOIN documents d ON e.session_id = d.session_id::text
             GROUP BY d.filename
-            ORDER BY total_queries DESC LIMIT 10
+            ORDER BY COUNT(*) DESC LIMIT 10
         """)
         per_doc = [dict(r) for r in cur.fetchall()]
 
