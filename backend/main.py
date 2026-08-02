@@ -272,12 +272,15 @@ def reciprocal_rank_fusion(ranked_lists: list, k: int = 60) -> list:
 
 
 def hybrid_search(query: str, chunks: list, index, bm25, k: int = 12) -> list:
+    # Boost k for queries with specific technical/named terms so rare concepts aren't missed
+    specific_terms = re.findall(r"\b[A-Z]{2,}\b|\b\w{8,}\b", query)
+    effective_k = min(len(chunks), k + len(specific_terms) * 2)
     query_embedding = embed_model.encode([query], convert_to_numpy=True)
-    _, faiss_indices = index.search(np.array(query_embedding, dtype=np.float32), k)
+    _, faiss_indices = index.search(np.array(query_embedding, dtype=np.float32), effective_k)
     faiss_ranked = list(faiss_indices[0])
     bm25_scores = bm25.get_scores(query.lower().split())
-    bm25_ranked = list(np.argsort(bm25_scores)[::-1][:k])
-    combined = reciprocal_rank_fusion([faiss_ranked, bm25_ranked])[:k]
+    bm25_ranked = list(np.argsort(bm25_scores)[::-1][:effective_k])
+    combined = reciprocal_rank_fusion([faiss_ranked, bm25_ranked])[:effective_k]
     return [chunks[i] for i in combined]
 
 

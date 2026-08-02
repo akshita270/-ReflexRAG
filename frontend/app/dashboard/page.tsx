@@ -105,6 +105,12 @@ const Ic = {
       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
   ),
+  refresh: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10"/>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+  ),
 };
 
 // ── Components ────────────────────────────────────────────────
@@ -222,16 +228,20 @@ function formatTimestamp(iso: string) {
 // ── Page ──────────────────────────────────────────────────────
 export default function Dashboard() {
   const { isDark, toggle: toggleTheme } = useTheme();
-  const [data, setData]     = useState<MetricsData | null>(null);
+  const [data, setData]       = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
+    setError(null);
     fetchMetrics()
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { load(); }, []);
 
   if (loading) {
     return (
@@ -252,7 +262,37 @@ export default function Dashboard() {
   if (error || !data) {
     return (
       <div style={{ display: "flex", height: "100dvh", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ color: "var(--danger)", fontSize: 14 }}>{error || "Failed to load metrics"}</p>
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 14,
+            background: "var(--danger-bg)", border: "1px solid var(--danger)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {Ic.warn}
+          </div>
+          <div>
+            <p style={{ color: "var(--text)", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>
+              Could not load metrics
+            </p>
+            <p style={{ color: "var(--text-subtle)", fontSize: 13 }}>
+              {error || "Backend may be starting up"}
+            </p>
+          </div>
+          <button
+            onClick={load}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "9px 20px", borderRadius: 10, border: "1px solid var(--border)",
+              background: "var(--glass)", backdropFilter: "blur(12px)",
+              color: "var(--text)", fontSize: 13, fontWeight: 500, cursor: "pointer",
+            }}
+          >
+            {Ic.refresh} Retry
+          </button>
+          <Link href="/" style={{ fontSize: 12, color: "var(--text-subtle)", textDecoration: "none" }}>
+            ← Back to chat
+          </Link>
+        </div>
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { uploadPDF, sendChat, resetSession, fetchSessions, restoreSession } from "@/lib/api";
+import { uploadPDF, sendChat, resetSession, fetchSessions, restoreSession, fetchHistory } from "@/lib/api";
 import type { Message, ReflectionEntry } from "@/lib/types";
 
 type PastSession = { session_id: string; filename: string; chunk_count: number; created_at: string };
@@ -449,11 +449,9 @@ const PIPELINE_STEPS = [
   { label: "Sentence Chunking",    num: "02", reflect: false },
   { label: "FAISS + BM25 Index",   num: "03", reflect: false },
   { label: "Hybrid Search (RRF)",  num: "04", reflect: false },
-  { label: "MMR Diversity",        num: "05", reflect: false },
-  { label: "Cross-Encoder Rerank", num: "06", reflect: false },
-  { label: "Retrieval Grading",    num: "07", reflect: true  },
-  { label: "GPT-4o mini",          num: "08", reflect: false },
-  { label: "Answer Grading",       num: "09", reflect: true  },
+  { label: "Cross-Encoder Rerank", num: "05", reflect: false },
+  { label: "GPT-4o mini",          num: "06", reflect: false },
+  { label: "Answer Grading",       num: "07", reflect: true  },
 ];
 
 // ── Main ──────────────────────────────────────────────────────
@@ -545,11 +543,14 @@ export default function Home() {
     setRestoring(true);
     setError(null);
     try {
-      const res = await restoreSession(s.session_id);
+      const [res, history] = await Promise.all([
+        restoreSession(s.session_id),
+        fetchHistory(s.session_id),
+      ]);
       setSessionId(res.session_id);
       setFilename(res.filename);
       setChunkCount(res.chunk_count);
-      setMessages([]);
+      setMessages(history.map(m => ({ role: m.role, content: m.content })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Restore failed");
     } finally {

@@ -68,3 +68,10 @@ export async function restoreSession(session_id: string): Promise<UploadResponse
   }
   return res.json();
 }
+
+export async function fetchHistory(session_id: string): Promise<{ role: "user" | "assistant"; content: string }[]> {
+  const res = await fetch(`${API_URL}/history/${session_id}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.messages || [];
+}
