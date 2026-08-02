@@ -169,56 +169,92 @@ function ProgressBar({ progress, status }: { progress: number; status: string })
   );
 }
 
-function EvalBadge({ log, source }: { log: ReflectionEntry[]; source?: string }) {
+function EvalBadge({
+  log, source, faithful, relevant, context_precision, response_time_ms, iterations,
+}: {
+  log: ReflectionEntry[];
+  source?: string;
+  faithful?: boolean;
+  relevant?: boolean;
+  context_precision?: number;
+  response_time_ms?: number;
+  iterations?: number;
+}) {
   const pillBase: React.CSSProperties = {
     display: "inline-flex", alignItems: "center", gap: 5,
     padding: "3px 9px", borderRadius: 99, fontSize: 11, fontWeight: 500,
   };
 
+  const timePill = response_time_ms != null ? (
+    <span style={{ ...pillBase, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-subtle)" }}>
+      {response_time_ms < 1000 ? `${response_time_ms}ms` : `${(response_time_ms / 1000).toFixed(1)}s`}
+    </span>
+  ) : null;
+
   if (source === "cache") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
         <span style={{ ...pillBase, background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
           {Ic.zap} Exact cache
         </span>
+        {timePill}
       </div>
     );
   }
   if (source === "semantic_cache") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
         <span style={{ ...pillBase, background: "var(--purple-bg)", border: "1px solid var(--purple)", color: "var(--purple)" }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           Semantic cache
         </span>
+        {timePill}
       </div>
     );
   }
 
+  // Pipeline response — use top-level eval fields if available, fall back to last reflection entry
   const last = log[log.length - 1];
-  if (!last) return null;
-  const ok = last.faithful && last.relevant;
-  const ctxPct = last.retrieved > 0 ? Math.round((last.after_grading / last.retrieved) * 100) : 0;
+  const isFaithful = faithful ?? last?.faithful ?? true;
+  const isRelevant = relevant ?? last?.relevant ?? true;
+  const ok = isFaithful && isRelevant;
+  const ctxPct = context_precision != null
+    ? Math.round(context_precision * 100)
+    : (last && last.retrieved > 0 ? Math.round((last.after_grading / last.retrieved) * 100) : 0);
+  const iters = iterations ?? log.length;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+      {/* Faithful */}
       <span style={{
         ...pillBase,
-        background: ok ? "var(--success-bg)" : "var(--danger-bg)",
-        border: `1px solid ${ok ? "var(--success)" : "var(--danger)"}`,
-        color: ok ? "var(--success)" : "var(--danger)",
+        background: isFaithful ? "var(--success-bg)" : "var(--danger-bg)",
+        border: `1px solid ${isFaithful ? "rgba(16,185,129,0.3)" : "rgba(248,113,113,0.3)"}`,
+        color: isFaithful ? "var(--success)" : "var(--danger)",
       }}>
-        {ok ? Ic.check : Ic.warn}
-        {ok ? "Verified" : "Low confidence"}
+        {isFaithful ? Ic.check : Ic.warn} Faithful
       </span>
+      {/* Relevant */}
+      <span style={{
+        ...pillBase,
+        background: isRelevant ? "var(--success-bg)" : "var(--danger-bg)",
+        border: `1px solid ${isRelevant ? "rgba(16,185,129,0.3)" : "rgba(248,113,113,0.3)"}`,
+        color: isRelevant ? "var(--success)" : "var(--danger)",
+      }}>
+        {isRelevant ? Ic.check : Ic.warn} Relevant
+      </span>
+      {/* Context precision */}
       <span style={{ ...pillBase, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-subtle)" }}>
-        {ctxPct}% precision
+        {ctxPct}% ctx
       </span>
-      {log.length > 1 && (
-        <span style={{ ...pillBase, background: "var(--purple-bg)", border: "1px solid var(--purple)", color: "var(--purple)" }}>
-          {log.length} iterations
+      {/* Iterations */}
+      {iters > 1 && (
+        <span style={{ ...pillBase, background: "var(--purple-bg)", border: "1px solid rgba(167,139,250,0.3)", color: "var(--purple)" }}>
+          ×{iters} iters
         </span>
       )}
+      {/* Response time */}
+      {timePill}
     </div>
   );
 }
@@ -355,7 +391,17 @@ function ChatBubble({ msg }: { msg: Message }) {
         }}>
           {msg.content}
         </div>
-        {msg.reflection_log && <EvalBadge log={msg.reflection_log} source={msg.source} />}
+        {msg.reflection_log && (
+          <EvalBadge
+            log={msg.reflection_log}
+            source={msg.source}
+            faithful={msg.faithful}
+            relevant={msg.relevant}
+            context_precision={msg.context_precision}
+            response_time_ms={msg.response_time_ms}
+            iterations={msg.iterations}
+          />
+        )}
         {msg.chunks && <ChunkViewer chunks={msg.chunks} />}
         {msg.reflection_log && <ReflectionLog log={msg.reflection_log} />}
       </div>
@@ -526,6 +572,11 @@ export default function Home() {
         chunks: res.chunks,
         reflection_log: res.reflection_log,
         source: res.source,
+        faithful: res.faithful,
+        relevant: res.relevant,
+        context_precision: res.context_precision,
+        response_time_ms: res.response_time_ms,
+        iterations: res.iterations,
       }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");

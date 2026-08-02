@@ -14,6 +14,11 @@ export interface Message {
   chunks?: string[];
   reflection_log?: ReflectionEntry[];
   source?: "pipeline" | "cache" | "semantic_cache";
+  faithful?: boolean;
+  relevant?: boolean;
+  context_precision?: number;
+  response_time_ms?: number;
+  iterations?: number;
 }
 
 export interface UploadResponse {
@@ -27,4 +32,10 @@ export interface ChatResponse {
   chunks: string[];
   reflection_log: ReflectionEntry[];
   source?: "pipeline" | "cache" | "semantic_cache";
+  faithful?: boolean;
+  relevant?: boolean;
+  context_precision?: number;
+  response_time_ms?: number;
+  iterations?: number;
 }
+

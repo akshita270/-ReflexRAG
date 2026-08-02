@@ -696,7 +696,24 @@ async def chat(req: ChatRequest):
     session["chat_history"].append({"role": "user", "content": req.query})
     session["chat_history"].append({"role": "assistant", "content": answer})
 
-    result = {"answer": answer, "chunks": used_chunks, "reflection_log": reflection_log, "source": "pipeline"}
+    last_refl = reflection_log[-1] if reflection_log else {}
+    ctx_prec = last_refl.get("after_grading", 0) / max(last_refl.get("retrieved", 1), 1)
+    response_ms = int((time.time() - t0) * 1000)
+    iters = last_refl.get("iteration", 1)
+    faithful = last_refl.get("faithful", True)
+    relevant = last_refl.get("relevant", True)
+
+    result = {
+        "answer": answer,
+        "chunks": used_chunks,
+        "reflection_log": reflection_log,
+        "source": "pipeline",
+        "faithful": faithful,
+        "relevant": relevant,
+        "context_precision": round(ctx_prec, 3),
+        "response_time_ms": response_ms,
+        "iterations": iters,
+    }
 
     # 5. Store in exact cache
     if cache:
@@ -706,13 +723,11 @@ async def chat(req: ChatRequest):
     _sem_cache_set(req.session_id, req.query, query_emb, cache_key)
 
     # 7. Store eval metrics
-    last_refl = reflection_log[-1] if reflection_log else {}
-    ctx_prec = last_refl.get("after_grading", 0) / max(last_refl.get("retrieved", 1), 1)
     store_eval_metric(
         req.session_id, req.query, answer,
-        last_refl.get("faithful", True), last_refl.get("relevant", True),
-        ctx_prec, int((time.time() - t0) * 1000),
-        iterations=last_refl.get("iteration", 1),
+        faithful, relevant,
+        ctx_prec, response_ms,
+        iterations=iters,
     )
 
     # 8. Persist messages to RDS
