@@ -7,6 +7,106 @@ import type { Message, ReflectionEntry } from "@/lib/types";
 
 type PastSession = { session_id: string; filename: string; chunk_count: number; created_at: string };
 
+// ── SVG Icons ─────────────────────────────────────────────────
+const Ic = {
+  brain: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+    </svg>
+  ),
+  upload: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+  ),
+  file: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  ),
+  chart: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/>
+      <line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+  ),
+  sun: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  ),
+  moon: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  ),
+  send: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13"/>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    </svg>
+  ),
+  refresh: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="1 4 1 10 7 10"/>
+      <path d="M3.51 15a9 9 0 1 0 .49-4"/>
+    </svg>
+  ),
+  chevDown: (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  ),
+  chevUp: (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15"/>
+    </svg>
+  ),
+  zap: (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  ),
+  check: (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  ),
+  warn: (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+  drag: (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+  ),
+  clock: (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </svg>
+  ),
+};
+
 // ── Helpers ───────────────────────────────────────────────────
 function statusToProgress(status: string): number {
   const s = status.toLowerCase();
@@ -21,14 +121,14 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ── Theme ─────────────────────────────────────────────────────
+// ── Theme (dark default) ──────────────────────────────────────
 function useTheme() {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(true);
   useEffect(() => {
-    if (localStorage.getItem("theme") === "dark") {
-      setIsDark(true);
-      document.documentElement.setAttribute("data-theme", "dark");
-    }
+    const saved = localStorage.getItem("theme");
+    const dark = saved !== "light";
+    setIsDark(dark);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   }, []);
   function toggle() {
     const next = !isDark;
@@ -41,65 +141,81 @@ function useTheme() {
 
 // ── Sub-components ────────────────────────────────────────────
 
+function Spinner() {
+  return (
+    <svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
+      <path d="M12 2 A10 10 0 0 1 22 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 function ProgressBar({ progress, status }: { progress: number; status: string }) {
   return (
-    <div className="mt-3">
-      <div className="w-full rounded-full overflow-hidden" style={{ height: "3px", background: "var(--border)" }}>
+    <div style={{ marginTop: 12 }}>
+      <div style={{ height: 2, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${progress}%`, background: "linear-gradient(90deg, var(--accent), #5eead4)" }}
+          style={{
+            height: "100%", borderRadius: 99,
+            width: `${progress}%`,
+            background: "linear-gradient(90deg, var(--accent), var(--accent-2))",
+            transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
+            boxShadow: "0 0 8px var(--accent-glow)",
+          }}
         />
       </div>
-      <p className="text-xs mt-1.5 text-center" style={{ color: "var(--text-subtle)" }}>
-        {status}
-      </p>
+      <p style={{ fontSize: 10, color: "var(--text-subtle)", textAlign: "center", marginTop: 5 }}>{status}</p>
     </div>
   );
 }
 
 function EvalBadge({ log, source }: { log: ReflectionEntry[]; source?: string }) {
+  const pillBase: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 5,
+    padding: "3px 9px", borderRadius: 99, fontSize: 11, fontWeight: 500,
+  };
+
   if (source === "cache") {
     return (
-      <div className="flex items-center gap-2 mt-2">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-          style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
-          ⚡ Exact cache
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+        <span style={{ ...pillBase, background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
+          {Ic.zap} Exact cache
         </span>
       </div>
     );
   }
   if (source === "semantic_cache") {
     return (
-      <div className="flex items-center gap-2 mt-2">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-          style={{ background: "var(--purple-bg)", border: "1px solid var(--purple)", color: "var(--purple)" }}>
-          🔮 Semantic cache
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+        <span style={{ ...pillBase, background: "var(--purple-bg)", border: "1px solid var(--purple)", color: "var(--purple)" }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Semantic cache
         </span>
       </div>
     );
   }
+
   const last = log[log.length - 1];
   if (!last) return null;
   const ok = last.faithful && last.relevant;
   const ctxPct = last.retrieved > 0 ? Math.round((last.after_grading / last.retrieved) * 100) : 0;
+
   return (
-    <div className="flex items-center gap-2 mt-2 flex-wrap">
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-        style={{
-          background: ok ? "var(--success-bg)" : "var(--danger-bg)",
-          border: `1px solid ${ok ? "var(--success)" : "var(--danger)"}`,
-          color: ok ? "var(--success)" : "var(--danger)",
-        }}>
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: ok ? "var(--success)" : "var(--danger)" }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+      <span style={{
+        ...pillBase,
+        background: ok ? "var(--success-bg)" : "var(--danger-bg)",
+        border: `1px solid ${ok ? "var(--success)" : "var(--danger)"}`,
+        color: ok ? "var(--success)" : "var(--danger)",
+      }}>
+        {ok ? Ic.check : Ic.warn}
         {ok ? "Verified" : "Low confidence"}
       </span>
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
-        style={{ background: "var(--surface-alt)", border: "1px solid var(--border)", color: "var(--text-subtle)" }}>
+      <span style={{ ...pillBase, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-subtle)" }}>
         {ctxPct}% precision
       </span>
       {log.length > 1 && (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
-          style={{ background: "var(--purple-bg)", border: "1px solid var(--purple)", color: "var(--purple)" }}>
+        <span style={{ ...pillBase, background: "var(--purple-bg)", border: "1px solid var(--purple)", color: "var(--purple)" }}>
           {log.length} iterations
         </span>
       )}
@@ -111,25 +227,32 @@ function ReflectionLog({ log }: { log: ReflectionEntry[] }) {
   const [open, setOpen] = useState(false);
   if (!log.length) return null;
   return (
-    <div className="mt-1.5">
-      <button onClick={() => setOpen(o => !o)} className="text-xs flex items-center gap-1"
-        style={{ color: "var(--text-subtle)" }}>
-        <span style={{ fontSize: "0.45rem" }}>{open ? "▲" : "▼"}</span>
+    <div style={{ marginTop: 6 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          fontSize: 11, color: "var(--text-subtle)", background: "none", border: "none",
+          cursor: "pointer", padding: 0,
+        }}
+      >
+        {open ? Ic.chevUp : Ic.chevDown}
         Self-Reflection Log
       </button>
       {open && (
-        <div className="mt-2 rounded-xl p-4 text-xs space-y-3"
-          style={{ background: "var(--surface-alt)", border: "1px solid var(--border)" }}>
+        <div style={{
+          marginTop: 8, borderRadius: 12, padding: "12px 14px",
+          background: "var(--surface)", border: "1px solid var(--border)",
+          fontSize: 11, display: "flex", flexDirection: "column", gap: 10,
+        }}>
           {log.map(e => (
-            <div key={e.iteration} className="space-y-1">
-              <p className="font-semibold" style={{ color: "var(--text)" }}>
+            <div key={e.iteration}>
+              <p style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>
                 Iteration {e.iteration}
                 {e.expanded && <span style={{ color: "var(--purple)", fontWeight: 400 }}> · expanded</span>}
               </p>
-              <p style={{ color: "var(--text-muted)" }}>
-                {e.retrieved} chunks → {e.after_grading} passed grading
-              </p>
-              <div className="flex gap-4">
+              <p style={{ color: "var(--text-muted)" }}>{e.retrieved} chunks → {e.after_grading} passed</p>
+              <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
                 <span style={{ color: e.faithful ? "var(--success)" : "var(--danger)" }}>
                   {e.faithful ? "✓" : "✗"} Faithful
                 </span>
@@ -137,7 +260,7 @@ function ReflectionLog({ log }: { log: ReflectionEntry[] }) {
                   {e.relevant ? "✓" : "✗"} Relevant
                 </span>
               </div>
-              {e.reason && <p style={{ color: "var(--text-subtle)", fontStyle: "italic" }}>{e.reason}</p>}
+              {e.reason && <p style={{ color: "var(--text-subtle)", fontStyle: "italic", marginTop: 2 }}>{e.reason}</p>}
             </div>
           ))}
         </div>
@@ -150,24 +273,30 @@ function ChunkViewer({ chunks }: { chunks: string[] }) {
   const [open, setOpen] = useState(false);
   if (!chunks.length) return null;
   return (
-    <div className="mt-1.5">
-      <button onClick={() => setOpen(o => !o)} className="text-xs flex items-center gap-1"
-        style={{ color: "var(--text-subtle)" }}>
-        <span style={{ fontSize: "0.45rem" }}>{open ? "▲" : "▼"}</span>
+    <div style={{ marginTop: 6 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          fontSize: 11, color: "var(--text-subtle)", background: "none", border: "none",
+          cursor: "pointer", padding: 0,
+        }}
+      >
+        {open ? Ic.chevUp : Ic.chevDown}
         {chunks.length} source chunks
       </button>
       {open && (
-        <div className="mt-2 space-y-2">
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
           {chunks.map((chunk, i) => (
-            <div key={i} className="rounded-xl p-3 text-xs leading-relaxed"
+            <div
+              key={i}
               style={{
-                background: "var(--surface-alt)",
-                border: "1px solid var(--border)",
-                borderLeft: "3px solid var(--accent)",
-                color: "var(--text-muted)",
-              }}>
-              <p className="font-semibold mb-1 uppercase tracking-wider"
-                style={{ fontSize: "0.6rem", color: "var(--accent)" }}>
+                borderRadius: 10, padding: "10px 12px", fontSize: 11, lineHeight: 1.6,
+                background: "var(--surface)", border: "1px solid var(--border)",
+                borderLeft: "2px solid var(--accent)", color: "var(--text-muted)",
+              }}
+            >
+              <p style={{ fontSize: 9, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
                 Chunk {i + 1}
               </p>
               {chunk}
@@ -182,30 +311,44 @@ function ChunkViewer({ chunks }: { chunks: string[] }) {
 function ChatBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === "user";
   const isNotFound = msg.content.startsWith("NOT FOUND");
+
   if (isUser) {
     return (
-      <div className="flex justify-end msg-animate">
-        <div className="max-w-lg rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed"
-          style={{ background: "var(--accent)", color: "#fff" }}>
+      <div className="msg-animate" style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{
+          maxWidth: 520, padding: "10px 16px", borderRadius: "18px 18px 4px 18px",
+          background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+          color: "#fff", fontSize: 13.5, lineHeight: 1.6, fontWeight: 400,
+          boxShadow: "0 4px 20px var(--accent-glow)",
+        }}>
           {msg.content}
         </div>
       </div>
     );
   }
+
   return (
-    <div className="flex justify-start gap-3 msg-animate">
-      <div className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm mt-0.5"
-        style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)" }}>
-        🧠
+    <div className="msg-animate" style={{ display: "flex", justifyContent: "flex-start", gap: 10 }}>
+      {/* Avatar */}
+      <div style={{
+        flexShrink: 0, width: 30, height: 30, borderRadius: 10, marginTop: 2,
+        background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#fff", boxShadow: "0 2px 10px var(--accent-glow)",
+      }}>
+        {Ic.brain}
       </div>
-      <div className="flex-1 max-w-2xl">
-        <div className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed"
-          style={{
-            background: isNotFound ? "var(--danger-bg)" : "var(--surface)",
-            border: `1px solid ${isNotFound ? "var(--danger)" : "var(--border)"}`,
-            color: isNotFound ? "var(--danger)" : "var(--text)",
-            boxShadow: "var(--shadow)",
-          }}>
+
+      <div style={{ flex: 1, maxWidth: 580 }}>
+        <div style={{
+          padding: "12px 16px", borderRadius: "18px 18px 18px 4px",
+          background: isNotFound ? "var(--danger-bg)" : "var(--glass)",
+          border: `1px solid ${isNotFound ? "var(--danger)" : "var(--border)"}`,
+          backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+          color: isNotFound ? "var(--danger)" : "var(--text)",
+          fontSize: 13.5, lineHeight: 1.7,
+          boxShadow: "var(--shadow)",
+        }}>
           {msg.content}
         </div>
         {msg.reflection_log && <EvalBadge log={msg.reflection_log} source={msg.source} />}
@@ -218,33 +361,45 @@ function ChatBubble({ msg }: { msg: Message }) {
 
 function TypingIndicator() {
   return (
-    <div className="flex justify-start gap-3 msg-animate">
-      <div className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm"
-        style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)" }}>
-        🧠
+    <div className="msg-animate" style={{ display: "flex", justifyContent: "flex-start", gap: 10 }}>
+      <div style={{
+        flexShrink: 0, width: 30, height: 30, borderRadius: 10,
+        background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#fff", boxShadow: "0 2px 10px var(--accent-glow)",
+      }}>
+        {Ic.brain}
       </div>
-      <div className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm flex items-center gap-2"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-subtle)", boxShadow: "var(--shadow)" }}>
-        <span className="animate-pulse">Searching</span>
-        <span style={{ color: "var(--border)" }}>·</span>
-        <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>Reflecting</span>
-        <span style={{ color: "var(--border)" }}>·</span>
-        <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>Generating</span>
+      <div style={{
+        padding: "14px 18px", borderRadius: "18px 18px 18px 4px",
+        background: "var(--glass)", border: "1px solid var(--border)",
+        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+        display: "flex", alignItems: "center", gap: 5,
+      }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: "var(--accent)",
+            display: "inline-block",
+            animation: `typingDot 1.2s ease-in-out infinite`,
+            animationDelay: `${i * 0.18}s`,
+          }} />
+        ))}
       </div>
     </div>
   );
 }
 
 const PIPELINE_STEPS = [
-  { label: "PDF Load & Clean",     icon: "01", reflect: false },
-  { label: "Sentence Chunking",    icon: "02", reflect: false },
-  { label: "FAISS + BM25 Index",   icon: "03", reflect: false },
-  { label: "Hybrid Search (RRF)",  icon: "04", reflect: false },
-  { label: "MMR Diversity",        icon: "05", reflect: false },
-  { label: "Cross-Encoder Rerank", icon: "06", reflect: false },
-  { label: "Retrieval Grading",    icon: "07", reflect: true  },
-  { label: "GPT-4o mini",          icon: "08", reflect: false },
-  { label: "Answer Grading",       icon: "09", reflect: true  },
+  { label: "PDF Load & Clean",     num: "01", reflect: false },
+  { label: "Sentence Chunking",    num: "02", reflect: false },
+  { label: "FAISS + BM25 Index",   num: "03", reflect: false },
+  { label: "Hybrid Search (RRF)",  num: "04", reflect: false },
+  { label: "MMR Diversity",        num: "05", reflect: false },
+  { label: "Cross-Encoder Rerank", num: "06", reflect: false },
+  { label: "Retrieval Grading",    num: "07", reflect: true  },
+  { label: "GPT-4o mini",          num: "08", reflect: false },
+  { label: "Answer Grading",       num: "09", reflect: true  },
 ];
 
 // ── Main ──────────────────────────────────────────────────────
@@ -378,247 +533,360 @@ export default function Home() {
 
   const canSend = !!sessionId && !!input.trim() && !loading;
 
+  // Shared style helpers
+  const divider = <div style={{ height: 1, background: "var(--border)", margin: "0" }} />;
+
   return (
     <div
-      className="flex h-dvh overflow-hidden relative"
+      style={{ display: "flex", height: "100dvh", overflow: "hidden", position: "relative", zIndex: 1 }}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* Drag overlay */}
+      {/* ── Drag overlay ───────────────────────────────────────── */}
       {isDragging && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center"
-          style={{ background: "var(--accent-light)", border: "3px dashed var(--accent)", backdropFilter: "blur(2px)" }}>
-          <div className="text-center">
-            <div className="text-5xl mb-3">📄</div>
-            <p className="text-xl font-semibold" style={{ color: "var(--accent)" }}>Drop your PDF here</p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-subtle)" }}>Release to start processing</p>
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 100,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "var(--accent-light)",
+          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        }}>
+          <div style={{
+            position: "absolute", inset: 16, borderRadius: 20,
+            border: "2px dashed var(--accent)",
+            animation: "borderGlow 1.5s ease-in-out infinite",
+          }} />
+          <div style={{ textAlign: "center", color: "var(--accent)" }}>
+            <div style={{ marginBottom: 12, opacity: 0.9 }}>{Ic.drag}</div>
+            <p style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.5px" }}>Drop your PDF here</p>
+            <p style={{ fontSize: 13, color: "var(--text-subtle)", marginTop: 4 }}>Release to start processing</p>
           </div>
         </div>
       )}
 
-      {/* ── SIDEBAR ───────────────────────────────────────────── */}
-      <aside className="w-72 flex-shrink-0 flex flex-col overflow-hidden"
-        style={{ background: "var(--surface)", borderRight: "1px solid var(--border)" }}>
+      {/* ── SIDEBAR ────────────────────────────────────────────── */}
+      <aside style={{
+        width: 260, flexShrink: 0,
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        background: "var(--sidebar-bg)",
+        backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+        borderRight: "1px solid var(--border)",
+        position: "relative", zIndex: 10,
+      }}>
 
-        {/* Logo + theme toggle */}
-        <div className="px-5 pt-5 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
-              style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)" }}>
-              🧠
+        {/* Logo */}
+        <div style={{ padding: "18px 18px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 4px 16px var(--accent-glow)",
+            }}>
+              <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "-0.5px" }}>RR</span>
             </div>
             <div>
-              <p className="font-bold text-sm" style={{ color: "var(--text)" }}>ReflexRAG</p>
-              <p className="text-xs" style={{ color: "var(--text-subtle)" }}>Clinical PDF Assistant</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.3px", lineHeight: 1.2 }}>ReflexRAG</p>
+              <p style={{ fontSize: 10, color: "var(--text-subtle)", lineHeight: 1 }}>Clinical AI</p>
             </div>
           </div>
-          <button onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-            style={{ background: "var(--surface-alt)", border: "1px solid var(--border)" }}
-            title="Toggle theme">
-            {isDark ? "☀️" : "🌙"}
+          <button
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            style={{
+              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+              background: "var(--surface)", border: "1px solid var(--border)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "var(--text-subtle)", transition: "all 0.15s",
+            }}
+          >
+            {isDark ? Ic.sun : Ic.moon}
           </button>
         </div>
 
-        <div style={{ height: "1px", background: "var(--border)" }} />
+        {divider}
+
+        {/* Scrollable middle content */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
         {/* Upload */}
-        <div className="px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-subtle)" }}>
+        <div style={{ padding: "14px 16px" }}>
+          <p style={{ fontSize: 9.5, fontWeight: 700, color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
             Document
           </p>
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="w-full rounded-xl py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all"
             style={{
-              background: uploading ? "var(--accent-light)" : "var(--accent)",
+              width: "100%", padding: "9px 14px", borderRadius: 10, border: "none",
+              background: uploading
+                ? "var(--accent-light)"
+                : "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
               color: uploading ? "var(--accent)" : "#fff",
+              fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.2px",
               cursor: uploading ? "wait" : "pointer",
-              boxShadow: uploading ? "none" : "0 2px 8px rgba(13,148,136,0.25)",
-            }}>
-            {uploading
-              ? <><span className="spin">⟳</span> Processing...</>
-              : <>↑ Upload PDF</>}
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              boxShadow: uploading ? "none" : "0 4px 18px var(--accent-glow)",
+              transition: "all 0.2s",
+            }}
+          >
+            {uploading ? <><Spinner /> Processing…</> : <>{Ic.upload} Upload PDF</>}
           </button>
-          <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFileInput} />
+          <input ref={fileRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={handleFileInput} />
 
           {uploading && uploadProgress > 0 && (
             <ProgressBar progress={uploadProgress} status={uploadStatus} />
           )}
 
           {filename && !uploading && (
-            <div className="mt-3 rounded-xl p-3"
-              style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)" }}>
-              <div className="flex items-start gap-2">
-                <span className="text-sm mt-0.5">📄</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{filename}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--accent)" }}>{chunkCount} chunks indexed</p>
+            <div style={{
+              marginTop: 10, borderRadius: 10, padding: "10px 12px",
+              background: "var(--accent-light)", border: "1px solid var(--accent-border)",
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <div style={{ color: "var(--accent)", marginTop: 1, flexShrink: 0 }}>{Ic.file}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {filename}
+                  </p>
+                  <p style={{ fontSize: 10.5, color: "var(--accent)", marginTop: 2 }}>
+                    {chunkCount.toLocaleString()} chunks indexed
+                  </p>
                 </div>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", flexShrink: 0, marginTop: 4, boxShadow: "0 0 6px var(--success)" }} />
               </div>
             </div>
           )}
         </div>
 
-        <div style={{ height: "1px", background: "var(--border)" }} />
+        {divider}
 
         {/* Recent docs */}
         {pastSessions.length > 0 && (
-          <div className="px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-subtle)" }}>
-              Recent Documents
-            </p>
-            <div className="space-y-0.5">
-              {pastSessions.slice(0, 5).map(s => {
-                const active = s.session_id === sessionId;
-                return (
-                  <button
-                    key={s.session_id}
-                    onClick={() => handleRestore(s)}
-                    disabled={restoring || active}
-                    className="w-full text-left rounded-xl px-3 py-2 text-xs transition-all"
-                    style={{
-                      background: active ? "var(--accent-light)" : "transparent",
-                      border: `1px solid ${active ? "var(--accent-border)" : "transparent"}`,
-                      cursor: restoring ? "wait" : "pointer",
-                    }}>
-                    <div className="flex items-center gap-2">
-                      <span>📄</span>
-                      <span className="truncate flex-1 font-medium" style={{ color: "var(--text)" }}>{s.filename}</span>
-                      {active && <span style={{ color: "var(--accent)", fontSize: "0.55rem" }}>●</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 pl-6">
-                      <span style={{ color: "var(--text-subtle)" }}>{formatDate(s.created_at)}</span>
-                      {s.chunk_count > 0 && (
-                        <><span style={{ color: "var(--border)" }}>·</span>
-                        <span style={{ color: "var(--text-subtle)" }}>{s.chunk_count} chunks</span></>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            {restoring && (
-              <p className="text-xs mt-2 text-center" style={{ color: "var(--accent)" }}>
-                Rebuilding index from S3...
+          <>
+            <div style={{ padding: "12px 16px 8px", flexShrink: 0 }}>
+              <p style={{ fontSize: 9.5, fontWeight: 700, color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+                Recent
               </p>
-            )}
-          </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 180, overflowY: "auto" }}>
+                {pastSessions.slice(0, 8).map(s => {
+                  const active = s.session_id === sessionId;
+                  return (
+                    <button
+                      key={s.session_id}
+                      onClick={() => handleRestore(s)}
+                      disabled={restoring || active}
+                      style={{
+                        width: "100%", textAlign: "left", padding: "7px 10px", borderRadius: 8,
+                        background: active ? "var(--accent-light)" : "transparent",
+                        border: `1px solid ${active ? "var(--accent-border)" : "transparent"}`,
+                        cursor: restoring ? "wait" : active ? "default" : "pointer",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ color: active ? "var(--accent)" : "var(--text-subtle)", flexShrink: 0 }}>{Ic.file}</span>
+                        <span style={{ flex: 1, fontSize: 11.5, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {s.filename}
+                        </span>
+                        {active && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2, paddingLeft: 19 }}>
+                        <span style={{ fontSize: 10, color: "var(--text-subtle)" }}>{Ic.clock}</span>
+                        <span style={{ fontSize: 10, color: "var(--text-subtle)" }}>{formatDate(s.created_at)}</span>
+                        {s.chunk_count > 0 && (
+                          <>
+                            <span style={{ fontSize: 10, color: "var(--border)" }}>·</span>
+                            <span style={{ fontSize: 10, color: "var(--text-subtle)" }}>{s.chunk_count} chunks</span>
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {restoring && (
+                <p style={{ fontSize: 10, color: "var(--accent)", textAlign: "center", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                  <Spinner /> Rebuilding index…
+                </p>
+              )}
+            </div>
+            {divider}
+          </>
         )}
 
-        <div style={{ height: "1px", background: "var(--border)" }} />
-
         {/* Pipeline */}
-        <div className="px-5 py-4 flex-1 overflow-y-auto">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-subtle)" }}>
+        <div style={{ padding: "12px 16px", flexShrink: 0 }}>
+          <p style={{ fontSize: 9.5, fontWeight: 700, color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
             Pipeline
           </p>
-          <div className="space-y-0.5">
-            {PIPELINE_STEPS.map(step => (
-              <div key={step.label}
-                className="flex items-center gap-3 rounded-lg px-3 py-1.5 text-xs"
-                style={{
-                  background: step.reflect ? "var(--accent-light)" : "transparent",
-                  color: step.reflect ? "var(--accent)" : "var(--text-muted)",
+          <div style={{ position: "relative", paddingLeft: 20 }}>
+            {/* Vertical connector line */}
+            <div style={{
+              position: "absolute", left: 7, top: 6, bottom: 6, width: 1,
+              background: "linear-gradient(to bottom, var(--accent-border) 0%, var(--border) 70%, transparent 100%)",
+            }} />
+            {PIPELINE_STEPS.map((step, idx) => (
+              <div key={step.label} style={{
+                position: "relative", display: "flex", alignItems: "center", gap: 8,
+                padding: "4px 0",
+                paddingLeft: step.reflect ? 0 : 0,
+              }}>
+                {/* Node circle */}
+                <div style={{
+                  position: "absolute", left: -20, width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                  background: step.reflect
+                    ? "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)"
+                    : "var(--surface-solid)",
+                  border: `1.5px solid ${step.reflect ? "var(--accent)" : "var(--border)"}`,
+                  boxShadow: step.reflect ? "0 0 8px var(--accent-glow)" : "none",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }} />
+                <span style={{
+                  fontSize: 9, fontWeight: 700, color: "var(--text-subtle)", letterSpacing: "0.05em",
+                  fontFamily: "monospace", flexShrink: 0, marginLeft: 4,
                 }}>
-                <span className="font-mono flex-shrink-0"
-                  style={{ fontSize: "0.55rem", color: step.reflect ? "var(--accent)" : "var(--text-subtle)" }}>
-                  {step.icon}
+                  {step.num}
                 </span>
-                <span className={step.reflect ? "font-semibold" : ""}>{step.label}</span>
-                {step.reflect && <span className="ml-auto" style={{ fontSize: "0.55rem" }}>✦</span>}
+                <span style={{
+                  fontSize: 11, color: step.reflect ? "var(--accent)" : "var(--text-muted)",
+                  fontWeight: step.reflect ? 600 : 400,
+                }}>
+                  {step.label}
+                </span>
+                {step.reflect && (
+                  <span style={{ marginLeft: "auto", color: "var(--accent)", fontSize: 9 }}>✦</span>
+                )}
               </div>
             ))}
           </div>
-          <p className="text-xs mt-3" style={{ color: "var(--text-subtle)" }}>✦ Self-Reflection nodes</p>
-
-          <div className="mt-3" style={{ height: "1px", background: "var(--border)" }} />
-          <Link href="/dashboard"
-            className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium"
-            style={{
-              background: "var(--surface-alt)",
-              border: "1px solid var(--border)",
-              color: "var(--text-muted)",
-              textDecoration: "none",
-              display: "flex",
-            }}>
-            <span>📊</span> Eval Dashboard
-          </Link>
+          <p style={{ fontSize: 9.5, color: "var(--text-subtle)", marginTop: 8, marginLeft: 4 }}>✦ Self-reflection nodes</p>
         </div>
 
-        {/* Reset */}
-        {sessionId && (
-          <div className="px-5 pb-5 pt-2">
-            <div className="mb-3" style={{ height: "1px", background: "var(--border)" }} />
-            <button onClick={handleReset}
-              className="w-full rounded-xl py-2.5 text-xs font-medium"
-              style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
-              Reset Session
+        </div>{/* end scrollable middle */}
+
+        {divider}
+
+        {/* Footer nav */}
+        <div style={{ padding: "12px 16px" }}>
+          <Link
+            href="/dashboard"
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "8px 12px", borderRadius: 10, textDecoration: "none",
+              background: "var(--surface)", border: "1px solid var(--border)",
+              color: "var(--text-muted)", fontSize: 12, fontWeight: 500,
+              transition: "all 0.15s",
+            }}
+          >
+            {Ic.chart}
+            Eval Dashboard
+          </Link>
+
+          {sessionId && (
+            <button
+              onClick={handleReset}
+              style={{
+                width: "100%", marginTop: 8, padding: "8px 12px", borderRadius: 10, border: "none",
+                background: "var(--danger-bg)", color: "var(--danger)",
+                fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                transition: "all 0.15s",
+              }}
+            >
+              {Ic.refresh} Reset Session
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </aside>
 
-      {/* ── MAIN ──────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--bg)" }}>
+      {/* ── MAIN ───────────────────────────────────────────────── */}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
         {/* Header */}
-        <div className="px-8 py-4 flex items-center justify-between flex-shrink-0"
-          style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+        <div style={{
+          padding: "12px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexShrink: 0,
+          background: "var(--header-bg)",
+          backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+          borderBottom: "1px solid var(--border)",
+        }}>
           <div>
-            <h1 className="font-semibold text-base" style={{ color: "var(--text)" }}>
+            <h1 style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.3px" }}>
               Clinical Research Assistant
             </h1>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-subtle)" }}>
-              Hybrid Search · MMR Diversity · Cross-Encoder Reranking · Self-Reflection RAG
+            <p style={{ fontSize: 10.5, color: "var(--text-subtle)", marginTop: 1 }}>
+              Hybrid Search · MMR · Cross-Encoder Reranking · Self-Reflection RAG
             </p>
           </div>
+
           {sessionId ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
-              style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "5px 12px", borderRadius: 99, fontSize: 11, fontWeight: 500,
+              background: "var(--success-bg)", border: "1px solid var(--success)", color: "var(--success)",
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--success)", boxShadow: "0 0 6px var(--success)" }} />
               Document Ready
-            </span>
+            </div>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
-              style={{ background: "var(--surface-alt)", border: "1px solid var(--border)", color: "var(--text-subtle)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--border)" }} />
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "5px 12px", borderRadius: 99, fontSize: 11, fontWeight: 500,
+              background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-subtle)",
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--border)" }} />
               No Document
-            </span>
+            </div>
           )}
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
-          {!sessionId && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center max-w-md">
-                <div className="rounded-2xl p-8"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}>
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4"
-                    style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)" }}>
-                    🧠
+        <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {!sessionId && messages.length === 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", margin: "auto 0" }}>
+              <div style={{ textAlign: "center", maxWidth: 440, width: "100%" }}>
+                {/* Main card */}
+                <div style={{
+                  borderRadius: 20, padding: "32px 28px",
+                  background: "var(--glass)", border: "1px solid var(--border)",
+                  backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+                  boxShadow: "var(--shadow-lg)",
+                }}>
+                  {/* Logo icon */}
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 16, margin: "0 auto 20px",
+                    background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 8px 32px var(--accent-glow)",
+                  }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
+                      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+                    </svg>
                   </div>
-                  <h2 className="font-semibold text-lg mb-2" style={{ color: "var(--text)" }}>
+
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.5px", marginBottom: 10 }}>
                     Upload a PDF to begin
                   </h2>
-                  <p className="text-sm leading-relaxed mb-5" style={{ color: "var(--text-muted)" }}>
-                    Ask questions about clinical research documents using
-                    advanced hybrid retrieval with self-reflection grading.
+                  <p style={{ fontSize: 13.5, lineHeight: 1.7, color: "var(--text-muted)", marginBottom: 22 }}>
+                    Ask questions about clinical research documents using advanced hybrid retrieval with self-reflection grading.
                   </p>
-                  <div className="flex flex-wrap gap-2 justify-center mb-4">
+
+                  {/* Feature chips */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginBottom: 20 }}>
                     {["Hybrid Search", "MMR Diversity", "Cross-Encoder", "Self-Reflection"].map(f => (
-                      <span key={f} className="px-2.5 py-1 rounded-full text-xs font-medium"
-                        style={{ background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
-                        {f}
-                      </span>
+                      <span key={f} style={{
+                        padding: "4px 11px", borderRadius: 99, fontSize: 11, fontWeight: 500,
+                        background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)",
+                      }}>{f}</span>
                     ))}
                   </div>
-                  <p className="text-xs" style={{ color: "var(--text-subtle)" }}>
-                    💡 Or drag &amp; drop a PDF anywhere on this page
+
+                  <p style={{ fontSize: 11.5, color: "var(--text-subtle)" }}>
+                    Drag &amp; drop a PDF anywhere, or use the sidebar upload
                   </p>
                 </div>
               </div>
@@ -630,8 +898,10 @@ export default function Home() {
           {loading && <TypingIndicator />}
 
           {error && (
-            <div className="rounded-xl px-4 py-3 text-sm"
-              style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
+            <div style={{
+              borderRadius: 12, padding: "10px 14px", fontSize: 13,
+              background: "var(--danger-bg)", border: "1px solid var(--danger)", color: "var(--danger)",
+            }}>
               {error}
             </div>
           )}
@@ -639,37 +909,55 @@ export default function Home() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
-        <div className="px-8 py-4 flex-shrink-0"
-          style={{ background: "var(--surface)", borderTop: "1px solid var(--border)" }}>
-          <div className="flex gap-3 items-center rounded-2xl px-4 py-3 transition-all"
-            style={{
-              background: "var(--surface-alt)",
-              border: `1.5px solid ${canSend ? "var(--accent)" : "var(--border)"}`,
-            }}>
+        {/* Input bar */}
+        <div style={{
+          padding: "14px 20px 16px",
+          background: "var(--header-bg)",
+          backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+          borderTop: "1px solid var(--border)",
+          flexShrink: 0,
+        }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            borderRadius: 14, padding: "10px 12px 10px 16px",
+            background: "var(--glass)",
+            border: `1.5px solid ${canSend ? "var(--accent)" : "var(--border)"}`,
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+            boxShadow: canSend ? "0 0 0 3px var(--accent-glow)" : "none",
+            transition: "all 0.2s",
+          }}>
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder={sessionId ? "Ask anything about the document..." : "Upload a PDF first"}
+              placeholder={sessionId ? "Ask anything about the document…" : "Upload a PDF first"}
               disabled={!sessionId || loading}
-              className="flex-1 bg-transparent text-sm outline-none"
-              style={{ color: "var(--text)" }}
+              style={{
+                flex: 1, background: "none", border: "none", outline: "none",
+                fontSize: 13.5, color: "var(--text)",
+                fontFamily: "inherit",
+              }}
             />
             <button
               onClick={handleSend}
               disabled={!canSend}
-              className="rounded-xl px-4 py-2 text-xs font-semibold flex-shrink-0 transition-all"
+              aria-label="Send"
               style={{
-                background: canSend ? "var(--accent)" : "var(--border)",
+                width: 34, height: 34, borderRadius: 9, border: "none", flexShrink: 0,
+                background: canSend
+                  ? "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)"
+                  : "var(--border)",
                 color: canSend ? "#fff" : "var(--text-subtle)",
                 cursor: canSend ? "pointer" : "not-allowed",
-                boxShadow: canSend ? "0 1px 4px rgba(13,148,136,0.3)" : "none",
-              }}>
-              Send ↵
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: canSend ? "0 2px 12px var(--accent-glow)" : "none",
+                transition: "all 0.2s",
+              }}
+            >
+              {Ic.send}
             </button>
           </div>
-          <p className="text-center text-xs mt-2" style={{ color: "var(--text-subtle)" }}>
+          <p style={{ textAlign: "center", fontSize: 10.5, color: "var(--text-subtle)", marginTop: 8 }}>
             Answers are grounded in the uploaded document only
           </p>
         </div>
