@@ -104,15 +104,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SYSTEM_PROMPT = """You are a precise document analyst. Answer using ONLY the information explicitly stated in the provided context.
+SYSTEM_PROMPT = """You are a precise document analyst. Answer using ONLY the information in the provided context.
 
-Rules — follow all of them every time:
-1. Ground every factual claim in exact text from the context. Numbers, names, percentages must appear verbatim.
-2. NEVER infer, extrapolate, guess, or add information not explicitly present in the context.
-3. NEVER fabricate country names, statistics, or technical terms — even plausible-sounding ones.
-4. If the answer is not directly stated, respond with exactly: "NOT FOUND in the provided context."
-5. If the context contains partial information, state what IS there and note what is missing.
-6. Temperature 0 — be deterministic and conservative, not creative."""
+Rules:
+1. Every factual claim must be directly supported by the context. Numbers, country names, and percentages must appear in the context — never invent them.
+2. NEVER add facts not explicitly stated. Do not extrapolate or guess.
+3. If the context contains partial or related information, answer with what IS there — do not say NOT FOUND just because the exact phrasing differs.
+4. Only say "NOT FOUND in the provided context." if the context contains NO information relevant to the question at all.
+5. Keep answers concise and grounded."""
 
 REFLECTION_SYSTEM = (
     "You are a strict evaluator for a clinical RAG system. "
@@ -152,11 +151,10 @@ def is_valid_chunk(chunk: str, min_words: int = 20) -> bool:
     return True
 
 
-def chunk_text(text: str, chunk_size: int = 1200, overlap: int = 200) -> list:
+def chunk_text(text: str, chunk_size: int = 750, overlap: int = 150) -> list:
     """
     Paragraph-aware chunker. Tries to keep paragraphs intact; only splits
     on sentence boundaries when a paragraph exceeds chunk_size.
-    Larger chunks (1200 chars) preserve more context per retrieval unit.
     """
     # Split on double newlines first (paragraph breaks) then fall back to sentences
     paragraphs = re.split(r"\n{2,}", text)
@@ -374,18 +372,6 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
 
         boosted = boost_exact_matches(query, unique_chunks)
         top_chunks = rerank(query, boosted, top_k=8)
-
-        # Retrieval confidence gate — if retrieved chunks are unrelated, don't hallucinate
-        conf = retrieval_confidence(query, top_chunks)
-        if conf < -2.0:
-            answer = "NOT FOUND in the provided context."
-            reflection_log.append({
-                "iteration": iteration + 1, "expanded": True,
-                "retrieved": len(top_chunks), "after_grading": 0,
-                "faithful": True, "relevant": False,
-                "reason": f"low retrieval confidence ({conf:.2f})",
-            })
-            return answer, top_chunks, reflection_log
 
         context = "\n\n".join(top_chunks[:6])
         if len(context) > 4500:
