@@ -104,16 +104,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SYSTEM_PROMPT = (
-    "You are a clinical research assistant. "
-    "Answer questions using ONLY the provided context chunks. "
-    "You may synthesize and compare information across multiple chunks — "
-    "you do not need a single chunk that directly states the comparison. "
-    "If the context contains relevant facts about each entity separately, "
-    "use them to construct a complete comparative answer. "
-    "Only respond with 'NOT FOUND:' if the context contains NO relevant "
-    "information at all about the topic."
-)
+SYSTEM_PROMPT = """You are a precise document analyst. Answer using ONLY the information explicitly stated in the provided context.
+
+Rules — follow all of them every time:
+1. Ground every factual claim in exact text from the context. Numbers, names, percentages must appear verbatim.
+2. NEVER infer, extrapolate, guess, or add information not explicitly present in the context.
+3. NEVER fabricate country names, statistics, or technical terms — even plausible-sounding ones.
+4. If the answer is not directly stated, respond with exactly: "NOT FOUND in the provided context."
+5. If the context contains partial information, state what IS there and note what is missing.
+6. Temperature 0 — be deterministic and conservative, not creative."""
 
 REFLECTION_SYSTEM = (
     "You are a strict evaluator for a clinical RAG system. "
@@ -123,141 +122,77 @@ REFLECTION_SYSTEM = (
 
 # ── TEXT PROCESSING ──────────────────────────────────────────
 
-_ROW_CONTINUATION_STARTERS = frozenset({
-    "second", "third", "first", "also", "often", "best", "look", "turn",
-    "click", "possible", "radiation", "radiates", "increase", "increases",
-    "decrease", "heard", "noted", "usually", "rarely", "may", "associated",
-    "absent", "component", "split", "delayed", "quiet", "opening", "occurs",
-    "maximal", "maximum", "small", "large", "loud", "soft", "blowing",
-    "pansystolic", "machinery", "fixed", "murmurs", "murmur", "rics", "lics",
-    "occasionally", "apex", "neck", "axilla", "carotid", "sternal", "base",
-    "beats", "excessively", "occupations", "and", "symptoms", "suggest",
-})
-
-# Specific two-word condition patterns: split only when followed by the right second word.
-# This avoids false splits like "Pulmonarycomponent" → wrong new row.
-_CONCAT_SPLIT_RE = re.compile(
-    r"([a-z,;'])("
-    r"Aortic\s+(?:stenosis|regurgitation)|"
-    r"Mitral\s+(?:stenosis|incompetence|prolapse)|"
-    r"Pulmonary\s+(?:stenosis|incompetence|hypertension)|"
-    r"Tricuspid\s+(?:incompetence|stenosis)|"
-    r"Ventricular\s+septal|"
-    r"Atrial\s+septal|"
-    r"Patent\s+ductus|"
-    r"Coarctation\s+of|"
-    r"Slow-rising|Collapsing|Alternans|Bisferiens|Paradoxus|"
-    r"Pleural\s+effusion|Consolidation|Pneumothorax"
-    r")",
-)
-
-
 def restructure_tables(raw_text: str) -> str:
-    """
-    Finds clinical tables by column-header patterns (Lesion/Type/Character…)
-    and splits each table body into one TABLE_ROW chunk per condition.
-    Rule-based, no LLM — terms are always copied verbatim from the source.
-
-    Handles two PDF quirks:
-    - Row wrapping: 'Aortic stenosis Harsh ejection systolic, maximal in\\nsecond RICS'
-    - Row concatenation: 'pulsatile liverPulmonary stenosis Midsystolic'
-    """
-    table_re = re.compile(
-        r"([A-Z][^\n]{5,80}\n)"
-        r"((?:Lesion|Type|Character|Feature|Sign|Condition|Finding)\s[^\n]+\n)"
-        r"((?:[^\n]{15,}\n){3,30})",
-        re.IGNORECASE,
-    )
-
-    replacements = []
-    for match in table_re.finditer(raw_text):
-        body = match.group(3)
-
-        # Pre-split rows concatenated without space: 'liverPulmonary stenosis' → 'liver\nPulmonary stenosis'
-        body = _CONCAT_SPLIT_RE.sub(r"\1\n\2", body)
-
-        lines = [l.strip() for l in body.split("\n") if l.strip()]
-        rows: list[str] = []
-        current: str = ""
-
-        for line in lines:
-            first = line.split()[0].lower() if line.split() else ""
-            is_new_row = (
-                line[0].isupper()
-                and first not in _ROW_CONTINUATION_STARTERS
-                and len(first) > 2
-            )
-            if is_new_row:
-                if current:
-                    rows.append(current.strip())
-                current = line
-            else:
-                current += " " + line
-
-        if current:
-            rows.append(current.strip())
-
-        if rows:
-            # End each row with "." so sentence-splitting in chunk_text can
-            # separate them even after clean_text collapses newlines to spaces.
-            def _end(r: str) -> str:
-                return r if r.endswith((".", "!", "?")) else r + "."
-            tagged = "\n".join(f"TABLE_ROW: {_end(r)}" for r in rows)
-            replacements.append((match.start(), match.end(), f". {tagged}\n"))
-
-    # Apply in reverse so earlier replacements don't shift later positions
-    result = raw_text
-    for start, end, replacement in reversed(replacements):
-        result = result[:start] + replacement + result[end:]
-
-    return result
+    """Pass-through — document-specific table restructuring removed."""
+    return raw_text
 
 
 def clean_text(text: str) -> str:
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"\n+", "\n", text)
-    text = re.sub(r"(\w+)-\s+(\w+)", r"\1\2", text)
+    # Rejoin words hyphenated across line breaks
+    text = re.sub(r"(\w+)-\s*\n\s*(\w+)", r"\1\2", text)
+    # Collapse whitespace but preserve paragraph breaks (double newline)
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    # Remove page headers/footers that are just numbers or short lines
+    text = re.sub(r"(?m)^\s*\d{1,3}\s*$", "", text)
     return text.strip()
 
 
-def is_valid_chunk(chunk: str, min_words: int = 15) -> bool:
-    # Table rows are short but valid — bypass word-count filter for them
-    if chunk.startswith("TABLE_ROW:"):
-        return True
+def is_valid_chunk(chunk: str, min_words: int = 20) -> bool:
     words = chunk.split()
     if len(words) < min_words:
         return False
-    if chunk.count("...") > 3:
+    # Skip chunks that are mostly dots (table of contents lines)
+    if chunk.count("..") > 4:
         return False
-    if chunk.count("....") > 2:
-        return False
-    roman = re.findall(r"\b(i{1,3}|iv|v|vi{1,3}|ix|x)\b", chunk.lower())
-    if len(roman) > 5:
+    # Skip chunks that are mostly numbers (page number lists, figure labels)
+    alpha_ratio = sum(c.isalpha() for c in chunk) / max(len(chunk), 1)
+    if alpha_ratio < 0.4:
         return False
     return True
 
 
-def chunk_text(text: str, chunk_size: int = 600, overlap: int = 100) -> list:
-    sentences = re.split(r"(?<=[.?!])\s+", text)
-    chunks = []
-    current_chunk = ""
-    for sentence in sentences:
-        # TABLE_ROW sentences must never be merged — flush and emit individually
-        if sentence.strip().startswith("TABLE_ROW:"):
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-                current_chunk = ""
-            chunks.append(sentence.strip())
+def chunk_text(text: str, chunk_size: int = 1200, overlap: int = 200) -> list:
+    """
+    Paragraph-aware chunker. Tries to keep paragraphs intact; only splits
+    on sentence boundaries when a paragraph exceeds chunk_size.
+    Larger chunks (1200 chars) preserve more context per retrieval unit.
+    """
+    # Split on double newlines first (paragraph breaks) then fall back to sentences
+    paragraphs = re.split(r"\n{2,}", text)
+    chunks: list[str] = []
+    current = ""
+
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
             continue
-        if len(current_chunk) + len(sentence) <= chunk_size:
-            current_chunk += " " + sentence
+
+        if len(current) + len(para) + 2 <= chunk_size:
+            current = (current + "\n\n" + para).strip() if current else para
         else:
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-            overlap_text = current_chunk[-overlap:] if len(current_chunk) > overlap else current_chunk
-            current_chunk = overlap_text + " " + sentence
-    if current_chunk.strip():
-        chunks.append(current_chunk.strip())
+            if current:
+                chunks.append(current)
+                # Carry overlap from end of current into next chunk
+                overlap_text = current[-overlap:] if len(current) > overlap else current
+                current = overlap_text + "\n\n" + para
+            else:
+                # Single paragraph exceeds chunk_size — split on sentences
+                sentences = re.split(r"(?<=[.?!])\s+", para)
+                for sent in sentences:
+                    if len(current) + len(sent) + 1 <= chunk_size:
+                        current = (current + " " + sent).strip() if current else sent
+                    else:
+                        if current:
+                            chunks.append(current)
+                            overlap_text = current[-overlap:] if len(current) > overlap else current
+                            current = overlap_text + " " + sent
+                        else:
+                            current = sent
+
+    if current.strip():
+        chunks.append(current.strip())
+
     return [c for c in chunks if is_valid_chunk(c)]
 
 
@@ -371,17 +306,14 @@ def grade_answer(query: str, answer: str, context: str) -> dict:
             messages=[
                 {"role": "system", "content": REFLECTION_SYSTEM},
                 {"role": "user", "content": (
-                    f"Context:\n{context[:1500]}\n\n"
+                    f"Context:\n{context[:2000]}\n\n"
                     f"Question: {query}\n\nAnswer: {answer}\n\n"
-                    f"Grade this answer with STRICT medical fact-checking.\n"
-                    f"Be especially strict about these opposites — any inversion = UNFAITHFUL:\n"
-                    f"  - Left vs Right (LICS vs RICS)\n"
-                    f"  - Systolic vs Diastolic\n"
-                    f"  - Inspiration vs Expiration\n"
-                    f"  - Specific anatomical positions (apex, base, sternal border)\n"
-                    f"  - Increases vs Decreases\n\n"
-                    f"To grade faithful=true, every specific fact in the answer must be "
-                    f"EXPLICITLY present in the context — not just semantically similar.\n\n"
+                    f"Grade this answer strictly:\n"
+                    f"- faithful=true ONLY if every specific fact (numbers, names, percentages, lists) "
+                    f"in the answer is EXPLICITLY stated in the context above — not inferred or paraphrased.\n"
+                    f"- faithful=false if the answer adds any fact not directly in the context, "
+                    f"or contradicts the context.\n"
+                    f"- relevant=true if the answer addresses the question topic.\n"
                     f"Respond with JSON: {{\"faithful\": true/false, \"relevant\": true/false, \"reason\": \"one sentence\"}}"
                 )},
             ],
@@ -399,6 +331,20 @@ def grade_answer(query: str, answer: str, context: str) -> dict:
 
 # ── PIPELINE ─────────────────────────────────────────────────
 
+VERBATIM_PROMPT = """You are a strict document extractor.
+Answer ONLY using text that appears VERBATIM or near-verbatim in the context.
+Do not rephrase, infer, or add anything beyond what the context explicitly states.
+If the answer is not in the context, say exactly: "NOT FOUND in the provided context." """
+
+
+def retrieval_confidence(query: str, top_chunks: list) -> float:
+    """Cross-encoder max score of (query, chunk) — low score means poor retrieval."""
+    if not top_chunks:
+        return 0.0
+    scores = reranker.predict([[query, c] for c in top_chunks[:6]])
+    return float(max(scores))
+
+
 def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_iterations: int = 2):
     reflection_log = []
     answer = ""
@@ -409,18 +355,16 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
     hyde_emb = embed_model.encode([hyde_text], convert_to_numpy=True)
 
     for iteration in range(max_iterations):
-        # Always expand + decompose; on retry, use fresh expansions
         extra = expand_query(query)
         if is_comparison_query(query):
             extra += decompose_comparison(query)
         all_queries = [query] + extra
 
         all_chunks: list = []
-        # Standard hybrid search for each query variant
         for q in all_queries:
             all_chunks.extend(hybrid_search(q, chunks, index, bm25, k=20))
 
-        # HyDE retrieval: embed synthetic answer → find chunks that look like the answer
+        # HyDE retrieval
         _, hyde_indices = index.search(np.array(hyde_emb, dtype=np.float32), 20)
         hyde_chunks = [chunks[i] for i in hyde_indices[0] if i < len(chunks)]
         all_chunks.extend(hyde_chunks)
@@ -431,19 +375,35 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
         boosted = boost_exact_matches(query, unique_chunks)
         top_chunks = rerank(query, boosted, top_k=8)
 
-        context = " ".join(top_chunks[:6])[:4500]
-        last_period = context.rfind(".")
-        if last_period > 500:
-            context = context[:last_period + 1]
+        # Retrieval confidence gate — if retrieved chunks are unrelated, don't hallucinate
+        conf = retrieval_confidence(query, top_chunks)
+        if conf < -2.0:
+            answer = "NOT FOUND in the provided context."
+            reflection_log.append({
+                "iteration": iteration + 1, "expanded": True,
+                "retrieved": len(top_chunks), "after_grading": 0,
+                "faithful": True, "relevant": False,
+                "reason": f"low retrieval confidence ({conf:.2f})",
+            })
+            return answer, top_chunks, reflection_log
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        context = "\n\n".join(top_chunks[:6])
+        if len(context) > 4500:
+            context = context[:4500]
+            last_period = context.rfind(".")
+            if last_period > 500:
+                context = context[:last_period + 1]
+
+        # On first iteration use standard prompt; on retry use verbatim-only
+        system = VERBATIM_PROMPT if iteration > 0 else SYSTEM_PROMPT
+        messages = [{"role": "system", "content": system}]
         messages += chat_history
         messages.append({"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"})
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            temperature=0.2,
+            temperature=0.0,
             max_tokens=512,
         )
         answer = response.choices[0].message.content
@@ -885,6 +845,19 @@ async def submit_feedback(req: FeedbackRequest):
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/reindex/{session_id}")
+async def reindex_session(session_id: str):
+    """Force re-chunk a session from S3 using the current chunker. Call after chunker updates."""
+    if cache:
+        cache.delete(f"session_chunks:{session_id}")
+        cache.delete(f"session_index:{session_id}")
+        cache.delete(f"semcache:{session_id}")
+    if session_id in sessions:
+        del sessions[session_id]
+    # Now restore fresh from S3
+    return await restore_session(session_id)
 
 
 @app.get("/sessions")
