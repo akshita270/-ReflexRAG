@@ -329,10 +329,14 @@ def grade_answer(query: str, answer: str, context: str) -> dict:
 
 # ── PIPELINE ─────────────────────────────────────────────────
 
-VERBATIM_PROMPT = """You are a strict document extractor.
-Answer ONLY using text that appears VERBATIM or near-verbatim in the context.
-Do not rephrase, infer, or add anything beyond what the context explicitly states.
-If the answer is not in the context, say exactly: "NOT FOUND in the provided context." """
+RETRY_SYSTEM = """You are a precise document analyst. Answer using ONLY the information in the provided context.
+
+Rules:
+1. Every factual claim must be directly supported by the context. Numbers, country names, and percentages must appear in the context — never invent them.
+2. NEVER add facts not explicitly stated. Do not extrapolate or guess.
+3. Look carefully — the answer may be expressed with slightly different wording than the question uses. Synonyms and paraphrases count.
+4. If the context mentions ANY related information, use it. Only say "NOT FOUND in the provided context." if there is truly zero relevant content.
+5. Keep answers concise and grounded."""
 
 
 def retrieval_confidence(query: str, top_chunks: list) -> float:
@@ -358,12 +362,16 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
             extra += decompose_comparison(query)
         all_queries = [query] + extra
 
+        # Iteration 2 uses wider retrieval to find content missed on iteration 1
+        k_per_query = 25 if iteration == 0 else 35
+
         all_chunks: list = []
         for q in all_queries:
-            all_chunks.extend(hybrid_search(q, chunks, index, bm25, k=20))
+            all_chunks.extend(hybrid_search(q, chunks, index, bm25, k=k_per_query))
 
         # HyDE retrieval
-        _, hyde_indices = index.search(np.array(hyde_emb, dtype=np.float32), 20)
+        hyde_k = 25 if iteration == 0 else 35
+        _, hyde_indices = index.search(np.array(hyde_emb, dtype=np.float32), hyde_k)
         hyde_chunks = [chunks[i] for i in hyde_indices[0] if i < len(chunks)]
         all_chunks.extend(hyde_chunks)
 
@@ -371,17 +379,20 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
         unique_chunks = [c for c in all_chunks if not (c in seen or seen.add(c))]
 
         boosted = boost_exact_matches(query, unique_chunks)
-        top_chunks = rerank(query, boosted, top_k=8)
+        top_k_rerank = 8 if iteration == 0 else 12
+        top_chunks = rerank(query, boosted, top_k=top_k_rerank)
 
-        context = "\n\n".join(top_chunks[:6])
-        if len(context) > 4500:
-            context = context[:4500]
+        # Use more context on iteration 2 since iteration 1 failed
+        context_slots = 6 if iteration == 0 else 10
+        context = "\n\n".join(top_chunks[:context_slots])
+        if len(context) > 6000:
+            context = context[:6000]
             last_period = context.rfind(".")
             if last_period > 500:
                 context = context[:last_period + 1]
 
-        # On first iteration use standard prompt; on retry use verbatim-only
-        system = VERBATIM_PROMPT if iteration > 0 else SYSTEM_PROMPT
+        # Iteration 2 uses RETRY_SYSTEM (same rules, but emphasizes synonyms/paraphrases)
+        system = RETRY_SYSTEM if iteration > 0 else SYSTEM_PROMPT
         messages = [{"role": "system", "content": system}]
         messages += chat_history
         messages.append({"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"})
@@ -852,6 +863,22 @@ async def reindex_session(session_id: str):
         del sessions[session_id]
     # Now restore fresh from S3
     return await restore_session(session_id)
+
+
+@app.get("/debug/search/{session_id}")
+async def debug_search(session_id: str, q: str, k: int = 10):
+    """Return top-k retrieved chunks for a query — useful for diagnosing retrieval failures."""
+    session = sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found. Call /restore first.")
+    all_chunks = hybrid_search(q, session["chunks"], session["index"], session["bm25"], k=k)
+    boosted = boost_exact_matches(q, all_chunks)
+    reranked = rerank(q, boosted, top_k=k)
+    return {
+        "query": q,
+        "chunk_count": len(session["chunks"]),
+        "top_chunks": [{"rank": i + 1, "text": c[:300]} for i, c in enumerate(reranked)],
+    }
 
 
 @app.get("/sessions")
