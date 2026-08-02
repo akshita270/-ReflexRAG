@@ -525,6 +525,7 @@ def store_eval_metric(session_id, query, answer, faithful, relevant,
 class ChatRequest(BaseModel):
     session_id: str
     query: str
+    bypass_cache: bool = False
 
 
 # ── ROUTES ───────────────────────────────────────────────────
@@ -642,7 +643,7 @@ async def chat(req: ChatRequest):
 
     # 1. Exact cache check
     cache_key = f"chat:{req.session_id}:{req.query.lower().strip()}"
-    if cache:
+    if cache and not req.bypass_cache:
         cached = cache.get(cache_key)
         if cached:
             result = json.loads(cached)
@@ -656,13 +657,14 @@ async def chat(req: ChatRequest):
     query_emb = embed_model.encode([req.query], convert_to_numpy=True)[0]
 
     # 3. Semantic cache check
-    sem_result = _sem_cache_get(req.session_id, query_emb)
-    if sem_result:
-        sem_result["source"] = "semantic_cache"
-        store_eval_metric(req.session_id, req.query, sem_result.get("answer", ""),
-                          True, True, 1.0, int((time.time() - t0) * 1000),
-                          semantic_cache_hit=True, iterations=0)
-        return sem_result
+    if not req.bypass_cache:
+        sem_result = _sem_cache_get(req.session_id, query_emb)
+        if sem_result:
+            sem_result["source"] = "semantic_cache"
+            store_eval_metric(req.session_id, req.query, sem_result.get("answer", ""),
+                              True, True, 1.0, int((time.time() - t0) * 1000),
+                              semantic_cache_hit=True, iterations=0)
+            return sem_result
 
     # 4. Run full pipeline
     answer, used_chunks, reflection_log = run_pipeline(
@@ -914,7 +916,10 @@ async def get_metrics():
                 COALESCE(ROUND(AVG(response_time_ms)::numeric, 0), 0) as avg_response_ms,
                 COALESCE(ROUND(AVG(context_precision * 100)::numeric, 1), 0) as avg_context_pct,
                 COALESCE(SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END), 0) as exact_hits,
-                COALESCE(SUM(CASE WHEN semantic_cache_hit THEN 1 ELSE 0 END), 0) as semantic_hits
+                COALESCE(SUM(CASE WHEN semantic_cache_hit THEN 1 ELSE 0 END), 0) as semantic_hits,
+                COALESCE(ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 0), 0) as p95_response_ms,
+                COALESCE(ROUND(AVG(CASE WHEN NOT faithful OR NOT relevant THEN 100.0 ELSE 0.0 END)::numeric, 1), 0) as error_rate_pct,
+                COALESCE(SUM(CASE WHEN iterations > 1 THEN 1 ELSE 0 END), 0) as multi_iter_count
             FROM eval_metrics
         """)
         stats = dict(cur.fetchone())
@@ -942,8 +947,20 @@ async def get_metrics():
         """)
         per_doc = [dict(r) for r in cur.fetchall()]
 
+        cur.execute("""
+            SELECT
+                DATE_TRUNC('hour', created_at) as hour,
+                COUNT(*) as count
+            FROM eval_metrics
+            WHERE created_at >= NOW() - INTERVAL '24 hours'
+            GROUP BY hour
+            ORDER BY hour ASC
+        """)
+        hourly_raw = cur.fetchall()
+        hourly = [{"hour": str(r["hour"]), "count": r["count"]} for r in hourly_raw]
+
         cur.close()
         db.close()
-        return {"stats": stats, "recent": recent, "per_doc": per_doc}
+        return {"stats": stats, "recent": recent, "per_doc": per_doc, "hourly": hourly}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
