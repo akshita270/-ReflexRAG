@@ -336,7 +336,11 @@ function ChatBubble({ msg }: { msg: Message }) {
         display: "flex", alignItems: "center", justifyContent: "center",
         color: "#fff", boxShadow: "0 2px 10px var(--accent-glow)",
       }}>
-        {Ic.brain}
+        {/* Medical cross */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+          <rect x="9" y="2" width="6" height="20" rx="2.5"/>
+          <rect x="2" y="9" width="20" height="6" rx="2.5"/>
+        </svg>
       </div>
 
       <div style={{ flex: 1, maxWidth: 580 }}>
@@ -368,7 +372,11 @@ function TypingIndicator() {
         display: "flex", alignItems: "center", justifyContent: "center",
         color: "#fff", boxShadow: "0 2px 10px var(--accent-glow)",
       }}>
-        {Ic.brain}
+        {/* Medical cross */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+          <rect x="9" y="2" width="6" height="20" rx="2.5"/>
+          <rect x="2" y="9" width="20" height="6" rx="2.5"/>
+        </svg>
       </div>
       <div style={{
         padding: "14px 18px", borderRadius: "18px 18px 18px 4px",
@@ -584,11 +592,15 @@ export default function Home() {
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: "0 4px 16px var(--accent-glow)",
             }}>
-              <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "-0.5px" }}>RR</span>
+              {/* Medical cross logo */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                <rect x="9" y="2" width="6" height="20" rx="2.5"/>
+                <rect x="2" y="9" width="20" height="6" rx="2.5"/>
+              </svg>
             </div>
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.3px", lineHeight: 1.2 }}>ReflexRAG</p>
-              <p style={{ fontSize: 10, color: "var(--text-subtle)", lineHeight: 1 }}>Clinical AI</p>
+              <p style={{ fontSize: 10, color: "var(--text-subtle)", lineHeight: 1 }}>Healthcare AI</p>
             </div>
           </div>
           <button
@@ -813,11 +825,19 @@ export default function Home() {
           borderBottom: "1px solid var(--border)",
         }}>
           <div>
-            <h1 style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.3px" }}>
-              Clinical Research Assistant
-            </h1>
-            <p style={{ fontSize: 10.5, color: "var(--text-subtle)", marginTop: 1 }}>
-              Hybrid Search · MMR · Cross-Encoder Reranking · Self-Reflection RAG
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* Stethoscope icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+                <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+                <circle cx="20" cy="10" r="2"/>
+              </svg>
+              <h1 style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.3px" }}>
+                Medical Document Intelligence
+              </h1>
+            </div>
+            <p style={{ fontSize: 10.5, color: "var(--text-subtle)", marginTop: 3, paddingLeft: 28 }}>
+              Clinical Trials · Drug Literature · Medical Guidelines · Lab Reports
             </p>
           </div>
 
@@ -855,37 +875,68 @@ export default function Home() {
                   backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
                   boxShadow: "var(--shadow-lg)",
                 }}>
-                  {/* Logo icon */}
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 16, margin: "0 auto 20px",
-                    background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: "0 8px 32px var(--accent-glow)",
-                  }}>
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-                      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
-                    </svg>
+                  {/* Healthcare hero icon */}
+                  <div style={{ margin: "0 auto 20px", position: "relative", width: 72, height: 72 }}>
+                    {/* Outer ring */}
+                    <div style={{
+                      position: "absolute", inset: 0, borderRadius: "50%",
+                      border: "1.5px solid var(--accent-border)",
+                      animation: "borderGlow 3s ease-in-out infinite",
+                    }} />
+                    <div style={{
+                      width: 72, height: 72, borderRadius: "50%",
+                      background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: "0 8px 32px var(--accent-glow)",
+                    }}>
+                      {/* Stethoscope SVG */}
+                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+                        <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+                        <circle cx="20" cy="10" r="2"/>
+                      </svg>
+                    </div>
                   </div>
 
                   <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.5px", marginBottom: 10 }}>
-                    Upload a PDF to begin
+                    Upload a medical PDF to begin
                   </h2>
                   <p style={{ fontSize: 13.5, lineHeight: 1.7, color: "var(--text-muted)", marginBottom: 22 }}>
-                    Ask questions about clinical research documents using advanced hybrid retrieval with self-reflection grading.
+                    Instantly query clinical trials, drug studies, medical guidelines, and lab reports with AI-powered self-reflection grading.
                   </p>
 
-                  {/* Feature chips */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginBottom: 20 }}>
-                    {["Hybrid Search", "MMR Diversity", "Cross-Encoder", "Self-Reflection"].map(f => (
-                      <span key={f} style={{
-                        padding: "4px 11px", borderRadius: 99, fontSize: 11, fontWeight: 500,
+                  {/* Healthcare feature chips with icons */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginBottom: 22 }}>
+                    {[
+                      { label: "Clinical Trials", icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11m0 0H5a2 2 0 0 1-2-2V9m6 5h10a2 2 0 0 0 2-2V9m-6 9v3m-3 0h6"/></svg> },
+                      { label: "Drug Literature", icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg> },
+                      { label: "Medical Guidelines", icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
+                      { label: "Lab Reports", icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5h0c-1.4 0-2.5-1.1-2.5-2.5V2"/><path d="M8.5 2h7"/><path d="M14.5 16h-5"/></svg> },
+                    ].map(f => (
+                      <span key={f.label} style={{
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        padding: "5px 12px", borderRadius: 99, fontSize: 11, fontWeight: 500,
                         background: "var(--accent-light)", border: "1px solid var(--accent-border)", color: "var(--accent)",
-                      }}>{f}</span>
+                      }}>
+                        {f.icon}{f.label}
+                      </span>
                     ))}
                   </div>
 
-                  <p style={{ fontSize: 11.5, color: "var(--text-subtle)" }}>
+                  {/* HIPAA-safe note */}
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "5px 12px", borderRadius: 99, fontSize: 10.5,
+                    background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-subtle)",
+                    marginBottom: 14,
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    Answers grounded in your document only
+                  </div>
+
+                  <p style={{ fontSize: 11, color: "var(--text-subtle)" }}>
                     Drag &amp; drop a PDF anywhere, or use the sidebar upload
                   </p>
                 </div>
