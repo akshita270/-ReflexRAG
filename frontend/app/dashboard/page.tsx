@@ -132,10 +132,11 @@ function GradientBar({ value, color1, color2 }: { value: number; color1: string;
 
 function BentoCard({ children, span = 1, style = {} }: { children: React.ReactNode; span?: number; style?: React.CSSProperties }) {
   return (
-    <div style={{
+    <div className="bento-card" style={{
       borderRadius: 16, padding: "20px 22px",
       background: "var(--glass)", border: "1px solid var(--border)",
-      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.08)",
       gridColumn: `span ${span}`,
       ...style,
     }}>
@@ -374,7 +375,7 @@ export default function Dashboard() {
   const pipeCount    = recent.filter(isQueryPipeline).length;
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", position: "relative", zIndex: 1 }}>
+    <div data-page="dashboard" style={{ minHeight: "100dvh", background: "var(--bg)", position: "relative", zIndex: 1 }}>
 
       {/* Header */}
       <div style={{ background: "var(--header-bg)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 10 }}>
@@ -456,34 +457,49 @@ export default function Dashboard() {
         {/* ── Top KPI row (6-col bento) ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 14, marginBottom: 14 }}>
 
-          <BentoCard style={{ gridColumn: "span 2", background: "linear-gradient(135deg, var(--accent-light), rgba(129,140,248,0.08))" }}>
+          <BentoCard style={{ gridColumn: "span 2", background: "linear-gradient(135deg, rgba(13,148,136,0.14) 0%, rgba(99,102,241,0.10) 100%)", border: "1px solid rgba(13,148,136,0.2)" }}>
             <StatLabel>Total Queries</StatLabel>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-              <BigNumber value={stats.total_queries || 0} />
+              <BigNumber value={stats.total_queries || 0} color="var(--accent)" />
               <MiniSparkline hourly={hourly} color="var(--accent)" />
             </div>
             <p style={{ fontSize: 11, color: "var(--text-subtle)", marginTop: 6 }}>lifetime requests</p>
           </BentoCard>
 
-          <BentoCard style={{ background: faithOk ? "var(--success-bg)" : "var(--danger-bg)" }}>
+          <BentoCard style={{
+            background: faithOk
+              ? "linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(5,150,105,0.07) 100%)"
+              : "linear-gradient(135deg, rgba(248,113,113,0.14) 0%, rgba(220,38,38,0.07) 100%)",
+            border: faithOk ? "1px solid rgba(16,185,129,0.22)" : "1px solid rgba(248,113,113,0.22)",
+          }}>
             <StatLabel>Faithfulness</StatLabel>
             <BigNumber value={stats.faithfulness_pct || 0} unit="%" color={faithOk ? "var(--success)" : "var(--danger)"} />
-            <p style={{ fontSize: 10, color: faithOk ? "var(--success)" : "var(--danger)", marginTop: 6, opacity: 0.7 }}>{faithOk ? "✓ healthy" : "↓ below 80%"}</p>
+            <p style={{ fontSize: 10, color: faithOk ? "var(--success)" : "var(--danger)", marginTop: 6, opacity: 0.8 }}>{faithOk ? "✓ healthy" : "↓ below 80%"}</p>
           </BentoCard>
 
-          <BentoCard style={{ background: relOk ? "var(--success-bg)" : "var(--danger-bg)" }}>
+          <BentoCard style={{
+            background: relOk
+              ? "linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(5,150,105,0.07) 100%)"
+              : "linear-gradient(135deg, rgba(248,113,113,0.14) 0%, rgba(220,38,38,0.07) 100%)",
+            border: relOk ? "1px solid rgba(16,185,129,0.22)" : "1px solid rgba(248,113,113,0.22)",
+          }}>
             <StatLabel>Relevance</StatLabel>
             <BigNumber value={stats.relevance_pct || 0} unit="%" color={relOk ? "var(--success)" : "var(--danger)"} />
-            <p style={{ fontSize: 10, color: relOk ? "var(--success)" : "var(--danger)", marginTop: 6, opacity: 0.7 }}>{relOk ? "✓ healthy" : "↓ below 80%"}</p>
+            <p style={{ fontSize: 10, color: relOk ? "var(--success)" : "var(--danger)", marginTop: 6, opacity: 0.8 }}>{relOk ? "✓ healthy" : "↓ below 80%"}</p>
           </BentoCard>
 
-          <BentoCard>
+          <BentoCard style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(129,140,248,0.06) 100%)", border: "1px solid rgba(99,102,241,0.18)" }}>
             <StatLabel>Avg Latency</StatLabel>
             <BigNumber value={Math.round(stats.avg_response_ms || 0)} unit="ms" color="var(--accent-2)" />
             <p style={{ fontSize: 10, color: "var(--text-subtle)", marginTop: 6 }}>P95: {Math.round(stats.p95_response_ms || 0)}ms</p>
           </BentoCard>
 
-          <BentoCard style={{ background: errorOk ? undefined : "rgba(248,113,113,0.06)" }}>
+          <BentoCard style={{
+            background: errorOk
+              ? "linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(13,148,136,0.06) 100%)"
+              : "linear-gradient(135deg, rgba(248,113,113,0.14) 0%, rgba(220,38,38,0.07) 100%)",
+            border: errorOk ? "1px solid var(--border)" : "1px solid rgba(248,113,113,0.22)",
+          }}>
             <StatLabel>Error Rate</StatLabel>
             <BigNumber value={stats.error_rate_pct || 0} unit="%" color={errorOk ? "var(--text)" : "var(--danger)"} />
             <p style={{ fontSize: 10, color: "var(--text-subtle)", marginTop: 6 }}>{stats.multi_iter_count || 0} multi-iter</p>
