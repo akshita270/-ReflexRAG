@@ -741,11 +741,45 @@ async def reset_session(session_id: str):
 
 @app.post("/restore/{session_id}")
 async def restore_session(session_id: str):
-    # Already in memory — no need to restore
-    if session_id in sessions:
-        return {"session_id": session_id, "filename": sessions[session_id]["filename"], "chunk_count": len(sessions[session_id]["chunks"])}
+    import asyncio
 
-    # Look up in RDS
+    # 1. Already in memory
+    if session_id in sessions:
+        s = sessions[session_id]
+        return {"session_id": session_id, "filename": s["filename"], "chunk_count": len(s["chunks"])}
+
+    # 2. Check Redis cache (instant — avoids re-embedding for sessions < 24h old)
+    if cache:
+        try:
+            chunks_raw = cache.get(f"session_chunks:{session_id}")
+            index_raw = cache.get(f"session_index:{session_id}")
+            if chunks_raw and index_raw:
+                chunks = json.loads(chunks_raw)
+                idx = faiss.deserialize_index(np.frombuffer(index_raw, dtype=np.uint8))
+                bm25 = BM25Okapi([c.lower().split() for c in chunks])
+
+                # Look up filename from RDS
+                try:
+                    db = get_db()
+                    cur = db.cursor()
+                    cur.execute("SELECT filename FROM documents WHERE session_id = %s", (session_id,))
+                    row = cur.fetchone()
+                    cur.close()
+                    db.close()
+                    filename = row["filename"] if row else "document.pdf"
+                except Exception:
+                    filename = "document.pdf"
+
+                sessions[session_id] = {
+                    "chunks": chunks, "index": idx, "bm25": bm25,
+                    "chat_history": [], "filename": filename,
+                }
+                print(f"Session restored from Redis cache: {session_id}")
+                return {"session_id": session_id, "filename": filename, "chunk_count": len(chunks)}
+        except Exception as e:
+            print(f"Redis restore error: {e}")
+
+    # 3. Look up in RDS
     try:
         db = get_db()
         cur = db.cursor()
@@ -754,14 +788,14 @@ async def restore_session(session_id: str):
         cur.close()
         db.close()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     if not doc:
         raise HTTPException(status_code=404, detail="Session not found.")
     if not doc["s3_key"]:
-        raise HTTPException(status_code=404, detail="PDF not in S3 — please re-upload.")
+        raise HTTPException(status_code=404, detail="PDF not stored — please re-upload.")
 
-    # Download PDF from S3
+    # 4. Download PDF from S3
     try:
         s3_client = boto3.client("s3", region_name="us-east-1")
         obj = s3_client.get_object(Bucket=os.getenv("S3_BUCKET", "reflexrag-pdfs"), Key=doc["s3_key"])
@@ -769,32 +803,48 @@ async def restore_session(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"S3 download failed: {e}")
 
-    # Rebuild index
-    reader = PdfReader(BytesIO(content))
-    text = ""
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text + "\n"
+    # 5. Parse + embed in thread pool (blocking CPU work — don't block event loop)
+    def _rebuild():
+        try:
+            reader = PdfReader(BytesIO(content))
+            text = ""
+            for page in reader.pages:
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+                except Exception:
+                    pass
+            text = restructure_tables(text)
+            chunks = chunk_text(clean_text(text))
+            if not chunks:
+                raise ValueError("No text extracted from PDF.")
+            embeddings = embed_model.encode(chunks, show_progress_bar=False)
+            idx = faiss.IndexFlatL2(embeddings.shape[1])
+            idx.add(np.array(embeddings, dtype=np.float32))
+            bm25 = BM25Okapi([c.lower().split() for c in chunks])
+            # Cache rebuilt index in Redis (24h TTL) so next restore is instant
+            if cache:
+                try:
+                    cache.set(f"session_chunks:{session_id}", json.dumps(chunks).encode(), ex=86400)
+                    cache.set(f"session_index:{session_id}", faiss.serialize_index(idx).tobytes(), ex=86400)
+                except Exception:
+                    pass
+            return chunks, idx, bm25
+        except Exception as exc:
+            raise exc
 
-    text = restructure_tables(text)
-    chunks = chunk_text(clean_text(text))
-    if not chunks:
-        raise HTTPException(status_code=400, detail="Could not extract text from PDF.")
-
-    embeddings = embed_model.encode(chunks, show_progress_bar=False)
-    idx = faiss.IndexFlatL2(embeddings.shape[1])
-    idx.add(np.array(embeddings, dtype=np.float32))
-    bm25 = BM25Okapi([c.lower().split() for c in chunks])
+    try:
+        chunks, idx, bm25 = await asyncio.get_event_loop().run_in_executor(None, _rebuild)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Index rebuild failed: {e}")
 
     sessions[session_id] = {
-        "chunks": chunks,
-        "index": idx,
-        "bm25": bm25,
-        "chat_history": [],
-        "filename": doc["filename"],
+        "chunks": chunks, "index": idx, "bm25": bm25,
+        "chat_history": [], "filename": doc["filename"],
     }
-
     print(f"Session restored from S3: {session_id}")
     return {"session_id": session_id, "filename": doc["filename"], "chunk_count": len(chunks)}
 
