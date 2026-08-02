@@ -697,8 +697,16 @@ async def reset_session(session_id: str):
 
 
 @app.post("/restore/{session_id}")
-async def restore_session(session_id: str):
+async def restore_session(session_id: str, force: bool = False):
     import asyncio
+
+    # force=true flushes cached chunks so the session is re-indexed from S3
+    if force and cache:
+        cache.delete(f"session_chunks:{session_id}")
+        cache.delete(f"session_index:{session_id}")
+        cache.delete(f"semcache:{session_id}")
+    if force and session_id in sessions:
+        del sessions[session_id]
 
     # 1. Already in memory
     if session_id in sessions:
