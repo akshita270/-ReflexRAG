@@ -330,18 +330,36 @@ def decompose_comparison(query: str) -> list:
     return lines[:2]
 
 
+def hypothetical_answer(query: str) -> str:
+    """HyDE: generate a synthetic passage that would answer the query for better FAISS retrieval."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": (
+                f"Write a short factual passage (2-3 sentences) that would directly answer "
+                f"this question as if from an OECD health care systems research report. "
+                f"Be specific with numbers, country names, and technical terms:\n\n{query}"
+            )}],
+            temperature=0.0,
+            max_tokens=150,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return query
+
+
 def expand_query(query: str) -> list:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": (
             f"Generate 3 alternative phrasings of this question "
-            f"for searching a neuroscience research paper. "
+            f"for searching an OECD health care systems and efficiency research report. "
             f"Return only the questions, one per line, no numbering.\n\nQuestion: {query}"
         )}],
-        temperature=0.5,
+        temperature=0.3,
         max_tokens=200,
     )
-    return response.choices[0].message.content.strip().split("\n")
+    return [l.strip() for l in response.choices[0].message.content.strip().split("\n") if l.strip()]
 
 
 # ── SELF-REFLECTION ──────────────────────────────────────────
@@ -383,25 +401,37 @@ def grade_answer(query: str, answer: str, context: str) -> dict:
 
 def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_iterations: int = 2):
     reflection_log = []
-    expand = False
     answer = ""
     top_chunks: list = []
 
+    # Pre-compute HyDE embedding once — reused across iterations
+    hyde_text = hypothetical_answer(query)
+    hyde_emb = embed_model.encode([hyde_text], convert_to_numpy=True)
+
     for iteration in range(max_iterations):
-        extra = expand_query(query) if expand else (decompose_comparison(query) if is_comparison_query(query) else [])
+        # Always expand + decompose; on retry, use fresh expansions
+        extra = expand_query(query)
+        if is_comparison_query(query):
+            extra += decompose_comparison(query)
         all_queries = [query] + extra
+
         all_chunks: list = []
+        # Standard hybrid search for each query variant
         for q in all_queries:
-            all_chunks.extend(hybrid_search(q, chunks, index, bm25, k=12))
+            all_chunks.extend(hybrid_search(q, chunks, index, bm25, k=20))
+
+        # HyDE retrieval: embed synthetic answer → find chunks that look like the answer
+        _, hyde_indices = index.search(np.array(hyde_emb, dtype=np.float32), 20)
+        hyde_chunks = [chunks[i] for i in hyde_indices[0] if i < len(chunks)]
+        all_chunks.extend(hyde_chunks)
 
         seen: set = set()
         unique_chunks = [c for c in all_chunks if not (c in seen or seen.add(c))]
 
         boosted = boost_exact_matches(query, unique_chunks)
-        # Cross-encoder reranker selects top-6 directly — no MMR or LLM retrieval grading needed
-        top_chunks = rerank(query, boosted, top_k=6)
+        top_chunks = rerank(query, boosted, top_k=8)
 
-        context = " ".join(top_chunks[:4])[:3000]
+        context = " ".join(top_chunks[:6])[:4500]
         last_period = context.rfind(".")
         if last_period > 500:
             context = context[:last_period + 1]
@@ -421,7 +451,7 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
         grade = grade_answer(query, answer, context)
         reflection_log.append({
             "iteration": iteration + 1,
-            "expanded": expand,
+            "expanded": True,
             "retrieved": len(top_chunks),
             "after_grading": len(top_chunks),
             "faithful": grade.get("faithful", True),
@@ -431,8 +461,6 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
 
         if grade.get("faithful", True) and grade.get("relevant", True):
             return answer, top_chunks, reflection_log
-
-        expand = True
 
     return answer, top_chunks, reflection_log
 
