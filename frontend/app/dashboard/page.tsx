@@ -176,6 +176,49 @@ function CacheSourceBadge({ hit, semantic }: { hit: boolean; semantic: boolean }
   return <span style={{ ...pill, background: "var(--surface)", color: "var(--text-subtle)" }}>{Ic.brain} pipeline</span>;
 }
 
+function StatusBadge({ faithful, relevant, cacheHit, semanticHit }: { faithful: boolean; relevant: boolean; cacheHit: boolean; semanticHit: boolean }) {
+  const pill: React.CSSProperties = { padding: "3px 10px", borderRadius: 99, fontSize: 10.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 };
+  if (cacheHit || semanticHit) {
+    return (
+      <span style={{ ...pill, background: "var(--accent-light)", color: "var(--accent)", border: "1px solid var(--accent-border)" }}>
+        {Ic.zap} Cached
+      </span>
+    );
+  }
+  if (faithful && relevant) {
+    return (
+      <span style={{ ...pill, background: "var(--success-bg)", color: "var(--success)", border: "1px solid rgba(16,185,129,0.2)" }}>
+        {Ic.check} Passed
+      </span>
+    );
+  }
+  if (faithful || relevant) {
+    return (
+      <span style={{ ...pill, background: "rgba(245,158,11,0.10)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+        ~ Partial
+      </span>
+    );
+  }
+  return (
+    <span style={{ ...pill, background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(248,113,113,0.2)" }}>
+      {Ic.warn} Failed
+    </span>
+  );
+}
+
+function formatTimestamp(iso: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 // ── Page ──────────────────────────────────────────────────────
 export default function Dashboard() {
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -397,42 +440,71 @@ export default function Dashboard() {
             <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "var(--surface-alt)", borderBottom: "1px solid var(--border)" }}>
-                  {["Query", "Document", "Faithful", "Relevant", "Context", "Time", "Source"].map(h => (
+                  {[
+                    { label: "Query", align: "left", pad: "11px 18px" },
+                    { label: "Status", align: "center", pad: "11px 14px" },
+                    { label: "Document", align: "left", pad: "11px 14px" },
+                    { label: "Faithful", align: "center", pad: "11px 12px" },
+                    { label: "Relevant", align: "center", pad: "11px 12px" },
+                    { label: "Context", align: "center", pad: "11px 12px" },
+                    { label: "Iters", align: "center", pad: "11px 12px" },
+                    { label: "Response", align: "center", pad: "11px 12px" },
+                    { label: "Source", align: "center", pad: "11px 12px" },
+                    { label: "When", align: "center", pad: "11px 14px" },
+                  ].map(h => (
                     <th
-                      key={h}
+                      key={h.label}
                       style={{
-                        padding: h === "Query" || h === "Document" ? "11px 18px" : "11px 12px",
-                        textAlign: h === "Query" || h === "Document" ? "left" : "center",
+                        padding: h.pad,
+                        textAlign: h.align as "left" | "center",
                         fontSize: 10, fontWeight: 700, textTransform: "uppercase",
                         letterSpacing: "0.07em", color: "var(--text-subtle)",
+                        whiteSpace: "nowrap",
                       }}
-                    >{h}</th>
+                    >{h.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {recent.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: "40px 22px", textAlign: "center", color: "var(--text-subtle)", fontSize: 13 }}>
+                    <td colSpan={10} style={{ padding: "40px 22px", textAlign: "center", color: "var(--text-subtle)", fontSize: 13 }}>
                       No queries yet — start chatting with a document.
                     </td>
                   </tr>
                 ) : recent.map((r, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.1s" }}>
+                  <tr
+                    key={i}
+                    style={{ borderBottom: "1px solid var(--border)", transition: "background 0.1s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--surface-alt)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    {/* Query */}
                     <td style={{
-                      padding: "10px 18px", color: "var(--text)", maxWidth: 260,
+                      padding: "11px 18px", color: "var(--text)", maxWidth: 240,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                       fontWeight: 500,
                     }}>
                       {r.query}
                     </td>
+                    {/* Status */}
+                    <td style={{ padding: "11px 14px", textAlign: "center", whiteSpace: "nowrap" }}>
+                      <StatusBadge
+                        faithful={r.faithful}
+                        relevant={r.relevant}
+                        cacheHit={r.cache_hit}
+                        semanticHit={r.semantic_cache_hit}
+                      />
+                    </td>
+                    {/* Document */}
                     <td style={{
-                      padding: "10px 18px", color: "var(--text-muted)", maxWidth: 140,
+                      padding: "11px 14px", color: "var(--text-muted)", maxWidth: 130,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
                       {r.filename || "—"}
                     </td>
-                    <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                    {/* Faithful */}
+                    <td style={{ padding: "11px 12px", textAlign: "center" }}>
                       <span style={{
                         display: "inline-flex", alignItems: "center", justifyContent: "center",
                         width: 20, height: 20, borderRadius: "50%",
@@ -442,7 +514,8 @@ export default function Dashboard() {
                         {r.faithful ? Ic.check : Ic.warn}
                       </span>
                     </td>
-                    <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                    {/* Relevant */}
+                    <td style={{ padding: "11px 12px", textAlign: "center" }}>
                       <span style={{
                         display: "inline-flex", alignItems: "center", justifyContent: "center",
                         width: 20, height: 20, borderRadius: "50%",
@@ -452,14 +525,36 @@ export default function Dashboard() {
                         {r.relevant ? Ic.check : Ic.warn}
                       </span>
                     </td>
-                    <td style={{ padding: "10px 12px", textAlign: "center", color: "var(--text-muted)", fontWeight: 500 }}>
+                    {/* Context */}
+                    <td style={{ padding: "11px 12px", textAlign: "center", color: "var(--text-muted)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
                       {r.context_precision != null ? `${Math.round(r.context_precision * 100)}%` : "—"}
                     </td>
-                    <td style={{ padding: "10px 12px", textAlign: "center", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                    {/* Iterations */}
+                    <td style={{ padding: "11px 12px", textAlign: "center" }}>
+                      {r.iterations != null ? (
+                        <span style={{
+                          display: "inline-block",
+                          padding: "2px 8px", borderRadius: 99,
+                          fontSize: 10.5, fontWeight: 600,
+                          background: r.iterations > 1 ? "var(--purple-bg)" : "var(--surface)",
+                          color: r.iterations > 1 ? "var(--purple)" : "var(--text-subtle)",
+                          fontVariantNumeric: "tabular-nums",
+                        }}>
+                          ×{r.iterations}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    {/* Response time */}
+                    <td style={{ padding: "11px 12px", textAlign: "center", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
                       {r.response_time_ms != null ? `${r.response_time_ms}ms` : "—"}
                     </td>
-                    <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                    {/* Source */}
+                    <td style={{ padding: "11px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
                       <CacheSourceBadge hit={r.cache_hit} semantic={r.semantic_cache_hit} />
+                    </td>
+                    {/* Timestamp */}
+                    <td style={{ padding: "11px 14px", textAlign: "center", color: "var(--text-subtle)", fontSize: 11, whiteSpace: "nowrap" }}>
+                      {formatTimestamp(r.created_at)}
                     </td>
                   </tr>
                 ))}
