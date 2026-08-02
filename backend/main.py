@@ -295,34 +295,12 @@ def boost_exact_matches(query: str, chunks: list) -> list:
     return high + normal
 
 
-def mmr(query: str, retrieved_chunks: list, lambda_param: float = 0.7, top_k: int = 6) -> list:
-    if not retrieved_chunks:
-        return []
-    query_emb = embed_model.encode([query])
-    chunk_embs = embed_model.encode(retrieved_chunks)
-    selected = []
-    candidate_indices = list(range(len(retrieved_chunks)))
-    while len(selected) < top_k and candidate_indices:
-        scores = []
-        for i in candidate_indices:
-            emb = chunk_embs[i].reshape(1, -1)
-            relevance = cosine_similarity(query_emb, emb)[0][0]
-            if selected:
-                diversity = max(cosine_similarity(emb, chunk_embs[selected].reshape(len(selected), -1))[0])
-            else:
-                diversity = 0.0
-            scores.append((i, lambda_param * relevance - (1 - lambda_param) * diversity))
-        best_idx = max(scores, key=lambda x: x[1])[0]
-        selected.append(best_idx)
-        candidate_indices.remove(best_idx)
-    return [retrieved_chunks[i] for i in selected]
-
-
-def rerank(query: str, chunks: list) -> list:
+def rerank(query: str, chunks: list, top_k: int = 6) -> list:
     if not chunks:
         return []
     scores = reranker.predict([[query, chunk] for chunk in chunks])
-    return [c for c, _ in sorted(zip(chunks, scores), key=lambda x: x[1], reverse=True)]
+    ranked = [c for c, _ in sorted(zip(chunks, scores), key=lambda x: x[1], reverse=True)]
+    return ranked[:top_k]
 
 
 COMPARISON_PATTERNS = re.compile(
@@ -365,35 +343,6 @@ def expand_query(query: str) -> list:
 
 # ── SELF-REFLECTION ──────────────────────────────────────────
 
-def grade_retrieval(query: str, chunks: list) -> list:
-    if not chunks:
-        return []
-    chunk_list = "\n\n".join([f"[{i+1}] {c[:300]}" for i, c in enumerate(chunks)])
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": REFLECTION_SYSTEM},
-                {"role": "user", "content": (
-                    f"Query: {query}\n\nRate each chunk as relevant (Y) or not (N).\n"
-                    f"Chunks:\n{chunk_list}\n\n"
-                    f"Respond ONLY with JSON: {{\"grades\": [\"Y\", \"N\", ...]}} — one grade per chunk."
-                )},
-            ],
-            temperature=0.0,
-            max_tokens=80,
-        )
-        text = response.choices[0].message.content.strip()
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            grades = json.loads(match.group()).get("grades", [])
-            relevant = [c for c, g in zip(chunks, grades) if str(g).upper() == "Y"]
-            return relevant if relevant else chunks
-    except Exception:
-        pass
-    return chunks
-
-
 def grade_answer(query: str, answer: str, context: str) -> dict:
     try:
         response = client.chat.completions.create(
@@ -433,7 +382,7 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
     reflection_log = []
     expand = False
     answer = ""
-    graded_chunks: list = []
+    top_chunks: list = []
 
     for iteration in range(max_iterations):
         extra = expand_query(query) if expand else (decompose_comparison(query) if is_comparison_query(query) else [])
@@ -446,10 +395,10 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
         unique_chunks = [c for c in all_chunks if not (c in seen or seen.add(c))]
 
         boosted = boost_exact_matches(query, unique_chunks)
-        reranked_chunks = rerank(query, mmr(query, boosted, top_k=6))
-        graded_chunks = grade_retrieval(query, reranked_chunks)
+        # Cross-encoder reranker selects top-6 directly — no MMR or LLM retrieval grading needed
+        top_chunks = rerank(query, boosted, top_k=6)
 
-        context = " ".join(graded_chunks[:4])[:3000]
+        context = " ".join(top_chunks[:4])[:3000]
         last_period = context.rfind(".")
         if last_period > 500:
             context = context[:last_period + 1]
@@ -470,19 +419,19 @@ def run_pipeline(query: str, chunks: list, index, bm25, chat_history: list, max_
         reflection_log.append({
             "iteration": iteration + 1,
             "expanded": expand,
-            "retrieved": len(reranked_chunks),
-            "after_grading": len(graded_chunks),
+            "retrieved": len(top_chunks),
+            "after_grading": len(top_chunks),
             "faithful": grade.get("faithful", True),
             "relevant": grade.get("relevant", True),
             "reason": grade.get("reason", ""),
         })
 
         if grade.get("faithful", True) and grade.get("relevant", True):
-            return answer, graded_chunks, reflection_log
+            return answer, top_chunks, reflection_log
 
         expand = True
 
-    return answer, graded_chunks, reflection_log
+    return answer, top_chunks, reflection_log
 
 
 # ── SEMANTIC CACHE ───────────────────────────────────────────
