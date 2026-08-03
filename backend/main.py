@@ -20,7 +20,7 @@ import tasks as celery_tasks
 from io import BytesIO
 
 load_dotenv()
-from pypdf import PdfReader
+import pdfplumber
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from rank_bm25 import BM25Okapi
 from sklearn.metrics.pairwise import cosine_similarity
@@ -768,16 +768,15 @@ async def restore_session(session_id: str, force: bool = False):
     # 5. Parse + embed in thread pool (blocking CPU work — don't block event loop)
     def _rebuild():
         try:
-            reader = PdfReader(BytesIO(content))
             text = ""
-            for page in reader.pages:
-                try:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-                except Exception:
-                    pass
-            text = restructure_tables(text)
+            with pdfplumber.open(BytesIO(content)) as pdf:
+                for page in pdf.pages:
+                    try:
+                        page_text = page.extract_text(layout=True)
+                        if page_text:
+                            text += page_text + "\n\n"
+                    except Exception:
+                        pass
             chunks = chunk_text(clean_text(text))
             if not chunks:
                 raise ValueError("No text extracted from PDF.")

@@ -4,7 +4,7 @@ import faiss
 import redis
 import boto3
 from io import BytesIO
-from pypdf import PdfReader
+import pdfplumber
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
@@ -83,12 +83,15 @@ def process_pdf(self, session_id: str, s3_key: str, filename: str):
 
         self.update_state(state="PROGRESS", meta={"status": "Extracting and chunking text..."})
 
-        reader = PdfReader(BytesIO(content))
         text = ""
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
+        with pdfplumber.open(BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                try:
+                    page_text = page.extract_text(layout=True)
+                    if page_text:
+                        text += page_text + "\n\n"
+                except Exception:
+                    pass
 
         chunks = chunk_text(clean_text(text))
         if not chunks:
